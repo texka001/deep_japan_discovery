@@ -1,0 +1,59 @@
+
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Clock, MapPin } from "lucide-react"
+import Image from "next/image"
+
+type Spot = {
+    spot_id: string
+    name_en: string
+    name_jp: string
+    category: string
+    difficulty: number
+    avg_stay_minutes: number
+    image_url: string | null
+}
+
+export function SpotCard({ spot, onClick }: { spot: Spot; onClick?: () => void }) {
+    return (
+        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={onClick}>
+            <CardHeader className="p-0 overflow-hidden rounded-t-lg">
+                <div className="relative w-full h-40">
+                    {spot.image_url ? (
+                        <Image
+                            src={spot.image_url}
+                            alt={spot.name_en}
+                            fill
+                            className="object-cover"
+                        />
+                    ) : (
+                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                            No Image
+                        </div>
+                    )}
+                    <Badge className="absolute top-2 right-2 bg-black/70 hover:bg-black/80">
+                        Lvl.{spot.difficulty}
+                    </Badge>
+                </div>
+            </CardHeader>
+            <CardContent className="p-4">
+                <div className="flex justify-between items-start mb-2">
+                    <div>
+                        <CardTitle className="text-lg font-bold line-clamp-1">{spot.name_en}</CardTitle>
+                        <CardDescription className="text-sm text-muted-foreground line-clamp-1">{spot.name_jp}</CardDescription>
+                    </div>
+                </div>
+                <div className="flex gap-2 mb-2">
+                    <Badge variant="outline" className="text-xs">{spot.category}</Badge>
+                </div>
+                <div className="flex items-center text-sm text-gray-500 gap-4">
+                    <div className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        <span>{spot.avg_stay_minutes} min</span>
+                    </div>
+                    {/* Distance could be calculated if we had current location here */}
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
