@@ -55,10 +55,12 @@ export default function Home() {
   useEffect(() => {
     if (category === 'All') {
       setFilteredSpots(spots);
+    } else if (category === 'Favorites') {
+      setFilteredSpots(spots.filter(s => favoriteSpotIds.has(s.spot_id)));
     } else {
       setFilteredSpots(spots.filter(s => s.category === category));
     }
-  }, [category, spots]);
+  }, [category, spots, favoriteSpotIds]);
 
   // Handle toggle from child components
   const handleToggleFavorite = (spotId: string, isFav: boolean) => {
