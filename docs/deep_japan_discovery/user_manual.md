@@ -1,59 +1,59 @@
-# Deep Japan Discovery - User Manual
+# Deep Japan Discovery - ユーザーマニュアル
 
-Welcome to **Deep Japan Discovery**, your guide to experiencing the authentic, "deep" side of Japan. This application helps you find unique spots, understand local rules, and explore Japanese subculture, retro vibes, and craftsmanship.
+**Deep Japan Discovery** へようこそ！このアプリケーションは、日本の「ディープ」な側面、サブカルチャー、レトロな雰囲気、職人技などを体験できるユニークなスポットを見つけ、その楽しみ方やルールを理解するためのガイドです。
 
-## 1. Getting Started
+## 1. はじめに
 
-### Accessing the App
-Open the application URL in your browser. You will see a map view populated with various "Deep Spots" across Tokyo (and beyond).
+### アプリへのアクセス
+ブラウザでアプリのURLを開きます。東京周辺（およびその他）の「ディープスポット」が表示された地図画面が開きます。
 
-### Navigation
-- **Map View**: The primary interface. Pinch to zoom, drag to pan.
-- **My Location**: Click the target icon (🎯) to center the map on your current location.
-- **Filter Bar**: Use the top bar to filter spots by category:
-  - **All**: Show everything.
-  - **Subculture**: Anime, manga, gaming, and idol culture.
-  - **Retro**: Showa-era nostalgia, old-school arcades, and vintage shops.
-  - **Craft**: Traditional workshops and shrines.
-  - **Favorites**: (Requires Login) Show only spots you have saved.
+### 基本操作
+- **マップ操作**: ピンチ操作でズーム、ドラッグで移動できます。
+- **現在地**: 画面上のターゲットアイコン (🎯) をクリックすると、現在地が中心に表示されます。
+- **フィルタリング**: 画面上部のバーを使って、カテゴリ別にスポットを絞り込めます。
+  - **All**: すべて表示
+  - **Subculture**: アニメ、漫画、ゲーム、アイドル文化など
+  - **Retro**: 昭和レトロ、昔懐かしいゲームセンター、古着屋など
+  - **Craft**: 伝統工芸、神社仏閣、職人の店など
+  - **Favorites**: （ログイン必須）お気に入りに登録したスポットのみ表示
 
-## 2. Exploring Spots
+## 2. スポットを探す
 
-### Spot Markers
-Tap any pin on the map to see a preview card at the bottom of the screen.
-- **Red/Large Pin**: Currently selected spot.
-- **Blue Pin**: Other spots.
+### スポットマーカー
+地図上のピンをタップすると、画面下部にプレビューカードが表示されます。
+- **赤色/大きなピン**: 現在選択中のスポット
+- **青色のピン**: その他のスポット
 
-### Spot Details
-Tap the preview card to open the full **Spot Detail View**. Here you can find:
-- **Overview**: Description, difficulty level, and average stay time.
-- **Location**: Address and map preview.
-- **Photos**: Gallery of images from the spot.
-- **Deep Guide**: Special rules and tips for visiting (e.g., "No photography," "Shoes off").
-- **Communication Cards**: Useful Japanese phrases for that specific location (e.g., "Is this for sale?", "Can I take a photo?").
+### スポット詳細
+プレビューカードをタップすると、**スポット詳細画面**が開きます。ここでは以下の情報を確認できます。
+- **概要**: 説明文、難易度レベル、平均滞在時間
+- **場所**: 住所と地図プレビュー
+- **写真**: ギャラリー形式のスポット写真
+- **Deep Guide**: その場所特有のルールやマナー（例：「撮影禁止」「土足厳禁」など）
+- **Communication Cards**: その場所で使える便利な日本語フレーズ（例：「これは売り物ですか？」「写真を撮ってもいいですか？」）
 
-## 3. Member Features (Free)
+## 3. 会員機能 (無料)
 
-Create an account to unlock interactive features. Click the "Login" icon in the top right.
+画面右上の「ログイン」アイコンからアカウントを作成すると、以下の機能が使えます。
 
-### Favorites
-- Save spots you want to visit by clicking the **Heart icon** on any spot card.
-- Quickly access them later using the "Favorites" filter on the home screen.
+### お気に入り機能
+- スポットカード上の **ハートアイコン** をタップして、行きたい場所を保存できます。
+- ホーム画面のフィルタで「Favorites」を選ぶと、保存したスポットだけを地図上に表示できます。
 
-### User Contributions (UGC)
-Help the community by adding to the database!
-- **Add Photos**: Visited a spot? Upload your own photos to the gallery. (Subject to Admin approval).
-- **Suggest Edit**: Found incorrect information? Submit a correction for the spot details.
+### ユーザー投稿 (UGC)
+データベースの充実にぜひご協力ください！
+- **写真を追加**: 実際に訪れたスポットの写真をアップロードできます。（管理者の承認後に公開されます）
+- **修正を提案**: スポット情報に間違いを見つけた場合、修正案を送信できます。
 
-## 4. For Administrators
+## 4. 管理者向け機能
 
-(Access: `/admin`)
+（アクセスURL: `/admin`）
 
-### Spot Generator (AI)
-- **Generate New Spots**: Enter a spot name and a reference URL (e.g., Google Maps or Review site).
-- **AI-Powered**: The system automatically pulls information, translates it, and creates "Deep Guide" rules using Gemini AI.
-- **Preview & Save**: Review the generated data before saving it to the public map.
+### スポット生成 (AI)
+- **新規スポット作成**: スポット名と参考URL（Googleマップや紹介サイトなど）を入力します。
+- **AI自動生成**: Gemini AI が情報を抽出し、説明文やDeep Guide（ルール）を自動で作成します。
+- **プレビューと保存**: 生成されたデータを確認・編集し、データベースに保存します。
 
-### UGC Review
-- **Approve/Reject**: Review photos and data corrections submitted by users.
-- **Manage Content**: Ensure high-quality and safe content for all users.
+### UGCレビュー
+- **承認/却下**: ユーザーから投稿された写真や修正提案を確認します。
+- **コンテンツ管理**: 「Approve」ボタンを押すと、その内容が正式にアプリ上に公開されます。
