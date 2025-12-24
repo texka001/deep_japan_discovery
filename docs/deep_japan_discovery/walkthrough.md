@@ -1,31 +1,46 @@
-# Deep Japan Discovery - Walkthrough
+# Walkthrough: Admin & AI & UGC Implementation
 
-## Phase 2: Authentication & Favorites (Completed)
+We have successfully implemented the Admin Dashboard, AI-powered content generation, and User-Generated Content (UGC) management.
 
-We have successfully implemented user authentication and the ability for users to save their favorite spots.
+## 1. Admin Dashboard (`/admin`)
 
-### 1. Authentication
-- **Provider**: Supabase Auth (Email/Password)
-- **Components**:
-  - `AuthProvider`: Manages user session globally.
-  - `LoginModal`: A clean dialog for Sign Up and Login.
-  - **Header Integration**: Shows "Login" button or "User Email + Logout" based on session state.
+An interface for administrators to generate content and manage user submissions.
 
-### 2. Favorites Feature
-- **Database**: Created `favorites` table with RLS policies to securely store user-spot relationships.
-- **UI Components**:
-  - `FavoriteButton`: A reusable heart button with optimistic UI updates. Handles "Log in to favorite" prompting.
-  - **Integration**: Added to `SpotCard` (top-right) and `SpotDetail` (header).
-- **Filtering**:
-  - Added a "Favorites" tab to the `FilterBar`.
-  - Implemented client-side filtering to show only favorited spots.
-- **State Management**:
-  - Lifted state to `page.tsx` to ensure favorite status persists correctly when switching between filter tabs (fixing a bug where status was lost).
+### Features
+- **Spot Generator**: 
+  - Input a Spot Name and optional URL.
+  - Fetches web content using `cheerio`.
+  - Uses **Gemini 2.0 Flash** to generate structured data (English/Japanese names, description, deep guide rules, etc.).
+  - Saves to Supabase `spots` table with PostGIS location data.
+- **UGC Review**:
+  - Displays pending user-submitted photos and data corrections.
+  - **Approve**: Publishes the content (adds photo to spot / updates spot data).
+  - **Reject**: Marks the submission as rejected.
 
-### Verification
-- [x] User can Sign Up and Login.
-- [x] User can Logout.
-- [x] User can toggle favorites on Spot Cards and Spot Details.
-- [x] "Favorites" filter correctly shows only liked spots.
-- [x] Favorite status persists across tab switching.
-- [x] Duplicate key errors (double-clicking) are handled gracefully.
+![Admin Dashboard](/Users/mukaikazuma/.gemini/antigravity/brain/edb41798-cbbe-4876-98c4-b6d9db8bafae/uploaded_image_1766547655443.png)
+
+## 2. AI Integration (Gemini)
+
+- **Endpoint**: `/api/admin/generate-spot`
+- **Library**: `@google/generative-ai`
+- **Logic**:
+  1. Scrapes the specific URL for context (Title, Meta, Body).
+  2. Construction a prompt for Gemini to output strict JSON matching our schema.
+  3. Returns data to the frontend for preview before saving.
+
+## 3. Map & Location
+
+- **Visualization**: Pins are displayed on the Google Map using `vis.gl/react-google-maps`.
+- **Data Fix**: Implemented a Hex WKB parser to correctly handle PostGIS geometry strings returned by Supabase.
+- **Address**: Added an `address` column and displayed it in the UI.
+
+## 4. Database Schema Updates
+
+- Added `address` column to `spots`.
+- Expanded `category` allowed values (`Food`, `Nature`, `Temple`, `Other`).
+- Created `spot_photos` and `spot_corrections` tables for UGC flow.
+
+## Next Steps
+- Populate the database with more real data using the Generator.
+- Refine the frontend design for mobile users.
+- Implement "Journeys" feature (Phase 6).

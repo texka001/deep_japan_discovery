@@ -32,3 +32,17 @@
     - [x] Implement toggle favorite API/logic
     - [x] Add Favorite Button to Spot Card/Detail
     - [x] Create "My Favorites" List View
+
+## Phase 3: Content & UI Enhancement
+- [x] Database Updates
+    - [x] Add `description`, `images`, `tags` to `spots` table
+    - [x] Create `spot_photos` and `spot_corrections` tables
+- [x] Backend / Admin
+    - [x] Create Admin Page (`app/admin/page.tsx`)
+    - [x] Implement Spot Generator API (`api/admin/generate-spot`) - **Powered by Gemini 2.0 Flash**
+    - [x] Create Review Dashboard for UGC (Photos & Corrections)
+- [x] UI Updates (Content & UGC)
+    - [x] Update `SpotDetail` (Description, Gallery)
+    - [x] Implement UGC Upload & Edit flows
+- [x] Data Entry
+    - [x] Tooling established (Spot Generator & UGC). Manual entry pending user action.

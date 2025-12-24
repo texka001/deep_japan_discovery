@@ -2,7 +2,7 @@
 
 import { Map, AdvancedMarker, Pin, useMap } from '@vis.gl/react-google-maps';
 import { useGeolocation } from '@/hooks/use-geolocation';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Locate } from 'lucide-react';
 
@@ -17,14 +17,74 @@ type Spot = {
 interface MapViewProps {
     spots?: Spot[];
     onMarkerClick?: (spot: Spot) => void;
+    selectedSpotId?: string | null;
 }
 
-export const MapView = ({ spots = [], onMarkerClick }: MapViewProps) => {
+export const MapView = ({ spots = [], onMarkerClick, selectedSpotId }: MapViewProps) => {
     const { location, loading, getLocation } = useGeolocation();
     const map = useMap(); // Access the map instance
 
     // Use Akihabara as the initial view, don't auto-pan to user location
     const initialCenter = DEFAULT_CENTER;
+
+    const parseHexFloat64 = (hex: string) => {
+        const buffer = new ArrayBuffer(8);
+        const view = new DataView(buffer);
+        // Hex is 16 chars. Parse pairs.
+        // PostGIS WKB is Little Endian (01).
+        // Example Hex: 848E17A14A786140 -> Double
+        // Provide bytes in reverse order for Big Endian DataView setResponse? 
+        // Or just set byte by byte.
+        for (let i = 0; i < 8; i++) {
+            const byteVal = parseInt(hex.substr(i * 2, 2), 16);
+            view.setUint8(i, byteVal);
+        }
+        return view.getFloat64(0, true); // true for littleEndian
+    };
+
+    const getCoordinates = (locationString: string) => {
+        if (!locationString) return null;
+
+        // CHECK FOR HEX FORMAT (PostGIS WKB)
+        // Starts with 0101000020E6100000 (18 chars header for Point 4326)
+        if (locationString.startsWith('0101000020E6100000')) {
+            try {
+                // Header (18 chars) + Lng (16 chars) + Lat (16 chars)
+                const lngHex = locationString.substr(18, 16);
+                const latHex = locationString.substr(34, 16);
+
+                const lng = parseHexFloat64(lngHex);
+                const lat = parseHexFloat64(latHex);
+                return { lat, lng };
+            } catch (e) {
+                console.error("Error parsing hex location", e);
+            }
+        }
+
+        // CHECK FOR WKT FORMAT "POINT(lng lat)"
+        try {
+            const match = locationString.match(/POINT\(([\d\.-]+) ([\d\.-]+)\)/); // Added minus for negative coords
+            if (match) {
+                return { lng: parseFloat(match[1]), lat: parseFloat(match[2]) };
+            }
+        } catch (e) {
+            console.error("Error parsing WKT location", locationString, e);
+        }
+        return null;
+    };
+
+    // Pan to selected spot
+    useEffect(() => {
+        if (!map || !selectedSpotId || !spots) return;
+        const spot = spots.find(s => s.spot_id === selectedSpotId);
+        if (spot) {
+            const coords = getCoordinates(spot.location);
+            if (coords) {
+                map.panTo(coords);
+                map.setZoom(16);
+            }
+        }
+    }, [map, selectedSpotId, spots]);
 
     const handleMyLocationClick = () => {
         if (location && map) {
@@ -33,19 +93,6 @@ export const MapView = ({ spots = [], onMarkerClick }: MapViewProps) => {
         } else {
             getLocation(); // Try to fetch again
         }
-    };
-
-    const getCoordinates = (locationString: string) => {
-        // Expected format: "POINT(139.771250 35.699250)"
-        try {
-            const match = locationString.match(/POINT\(([\d\.]+) ([\d\.]+)\)/);
-            if (match) {
-                return { lng: parseFloat(match[1]), lat: parseFloat(match[2]) };
-            }
-        } catch (e) {
-            console.error("Error parsing location", locationString, e);
-        }
-        return null;
     };
 
     return (
@@ -67,14 +114,21 @@ export const MapView = ({ spots = [], onMarkerClick }: MapViewProps) => {
                 {spots.map((spot) => {
                     const position = getCoordinates(spot.location);
                     if (!position) return null;
+                    const isSelected = spot.spot_id === selectedSpotId;
 
                     return (
                         <AdvancedMarker
                             key={spot.spot_id}
                             position={position}
                             onClick={() => onMarkerClick?.(spot)}
+                            zIndex={isSelected ? 10 : 1}
                         >
-                            <Pin background={'#FBBC04'} glyphColor={'#000'} borderColor={'#000'} />
+                            <Pin
+                                background={isSelected ? '#EA4335' : '#FBBC04'}
+                                glyphColor={'#000'}
+                                borderColor={'#000'}
+                                scale={isSelected ? 1.2 : 1.0}
+                            />
                         </AdvancedMarker>
                     );
                 })}

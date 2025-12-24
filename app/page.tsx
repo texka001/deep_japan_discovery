@@ -41,7 +41,8 @@ export default function Home() {
   // Fetch spots
   useEffect(() => {
     async function fetchSpots() {
-      const { data, error } = await supabase.from('spots').select('*');
+      // Cast location to text to get "POINT(lng lat)" format for MapView
+      const { data, error } = await supabase.from('spots').select('*, location:location::text');
       if (data) {
         setSpots(data);
         setFilteredSpots(data);
@@ -113,6 +114,7 @@ export default function Home() {
           <MapView
             spots={filteredSpots}
             onMarkerClick={(spot) => setSelectedSpot(spot)}
+            selectedSpotId={selectedSpot?.spot_id}
           />
         </MapProvider>
       </div>

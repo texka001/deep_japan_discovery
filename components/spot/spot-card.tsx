@@ -5,15 +5,7 @@ import { Clock, MapPin } from "lucide-react"
 import Image from "next/image"
 import { FavoriteButton } from "./favorite-button"
 
-type Spot = {
-    spot_id: string
-    name_en: string
-    name_jp: string
-    category: string
-    difficulty: number
-    avg_stay_minutes: number
-    image_url: string | null
-}
+import { Spot } from "@/types"
 
 interface SpotCardProps {
     spot: Spot;

@@ -9,19 +9,14 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
-import { Clock, MapPin, AlertTriangle, MessageCircle, Info } from "lucide-react"
+import { Clock, MapPin, AlertTriangle, MessageCircle, Info, Camera, Edit } from "lucide-react"
 import { FavoriteButton } from "./favorite-button"
+import { useState } from "react"
+import { useAuth } from "@/components/auth/auth-provider"
+import { UploadPhotoModal } from "@/components/ugc/upload-photo-modal"
+import { SuggestEditModal } from "@/components/ugc/suggest-edit-modal"
 
-type Spot = {
-    spot_id: string
-    name_en: string
-    name_jp: string
-    category: string
-    difficulty: number
-    avg_stay_minutes: number
-    image_url: string | null
-    deep_guide_json: any
-}
+import { Spot } from "@/types"
 
 interface SpotDetailProps {
     spot: Spot | null
@@ -35,6 +30,9 @@ export function SpotDetail({ spot, open, onOpenChange, isFavorite, onToggleFavor
     if (!spot) return null
 
     const guide = spot.deep_guide_json || {}
+    const { user } = useAuth();
+    const [showPhotoModal, setShowPhotoModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -78,13 +76,42 @@ export function SpotDetail({ spot, open, onOpenChange, isFavorite, onToggleFavor
                             <Badge variant="outline" className="mt-1">Lvl.{spot.difficulty}</Badge>
                         </div>
                         <p className="text-muted-foreground">{spot.name_jp}</p>
-                        <div className="flex gap-2 mt-2">
+
+                        {spot.address && (
+                            <div className="flex items-center text-sm text-gray-500 mt-1 gap-1">
+                                <MapPin className="w-3 h-3 flex-shrink-0" />
+                                <span>{spot.address}</span>
+                            </div>
+                        )}
+
+                        <div className="flex flex-wrap gap-2 mt-2">
                             <Badge>{spot.category}</Badge>
+                            {spot.tags && spot.tags.map(tag => (
+                                <Badge key={tag} variant="secondary" className="text-xs">#{tag}</Badge>
+                            ))}
                             <div className="flex items-center text-sm text-gray-500 gap-1 ml-2">
                                 <Clock className="w-4 h-4" />
                                 <span>{spot.avg_stay_minutes} min</span>
                             </div>
                         </div>
+
+                        {/* Description */}
+                        {spot.description && (
+                            <p className="mt-4 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                                {spot.description}
+                            </p>
+                        )}
+
+                        {/* Gallery */}
+                        {spot.images && spot.images.length > 0 && (
+                            <div className="mt-4 flex gap-2 overflow-x-auto pb-2 snap-x">
+                                {spot.images.map((img, idx) => (
+                                    <div key={idx} className="relative w-40 h-28 flex-shrink-0 rounded-md overflow-hidden snap-center border">
+                                        <Image src={img} alt={`Gallery ${idx}`} fill className="object-cover" />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Deep Guide Section */}
@@ -133,9 +160,32 @@ export function SpotDetail({ spot, open, onOpenChange, isFavorite, onToggleFavor
                     )}
 
                     <div className="pb-8"></div>
+
+                    {/* UGC Actions */}
+                    <div className="flex gap-2 pb-8">
+                        <Button variant="outline" className="flex-1" onClick={() => user ? setShowPhotoModal(true) : alert("Please login to contribute")}>
+                            <Camera className="w-4 h-4 mr-2" />
+                            Add Photo
+                        </Button>
+                        <Button variant="outline" className="flex-1" onClick={() => user ? setShowEditModal(true) : alert("Please login to suggest edits")}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Suggest Edit
+                        </Button>
+                    </div>
                 </div>
 
             </SheetContent>
+
+            <UploadPhotoModal
+                spot={spot}
+                open={showPhotoModal}
+                onOpenChange={setShowPhotoModal}
+            />
+            <SuggestEditModal
+                spot={spot}
+                open={showEditModal}
+                onOpenChange={setShowEditModal}
+            />
         </Sheet>
     )
 }
