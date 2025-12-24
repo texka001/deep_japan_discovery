@@ -6,10 +6,18 @@ import { cn } from "@/lib/utils"
 
 const CATEGORIES = ['All', 'Subculture', 'Retro', 'Craft']
 
-export function FilterBar({ selected, onSelect }: { selected: string, onSelect: (c: string) => void }) {
+interface FilterBarProps {
+    selected: string;
+    onSelect: (c: string) => void;
+    showFavorites?: boolean;
+}
+
+export function FilterBar({ selected, onSelect, showFavorites }: FilterBarProps) {
+    const categories = showFavorites ? [...CATEGORIES, 'Favorites'] : CATEGORIES;
+
     return (
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide py-2 px-4">
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
                 <Badge
                     key={cat}
                     variant={selected === cat ? "default" : "secondary"}

@@ -1,39 +1,45 @@
 # Deep Japan Discovery MVP - Implementation Plan: UI & Data
 
-## Goal
-Implement the core UI components (Landing Page, Spot List, Spot Detail) and visualize real data from Supabase.
+## Phase 1: MVP (Completed)
+- [x] Basic UI (Home, List, Detail)
+- [x] Map Integration (Markers, Geolocation)
+- [x] Supabase Setup & Seeding
+- [x] Vercel Deployment
 
-## User Review Required
-- **Seed Data**: I will create a seed script to insert sample spots (Akihabara area) into the database so we have something to show.
+# Phase 2: User Features (Auth & Favorites)
+
+## Goal
+Allow users to sign up/login and save their favorite spots.
 
 ## Proposed Changes
-### Data Seeding
-- [NEW] `scripts/seed-data.ts`: Script to insert sample spots into Supabase.
+### Database Schema
+- [NEW] `public.favorites` table:
+    - `favorite_id` (uuid, pk)
+    - `user_id` (uuid, fk to auth.users)
+    - `spot_id` (uuid, fk to spots)
+    - `created_at` (timestamp, timezone('utc', now()))
+- [NEW] RLS Policies for `favorites`:
+    - Select: Users can see their own favorites.
+    - Insert: Users can add favorites.
+    - Delete: Users can remove favorites.
 
-### Components
-- [NEW] `components/spot/spot-card.tsx`: Card component for displaying spot summary.
-- [NEW] `components/spot/spot-list.tsx`: Sidebar/Overlay list of spots.
-- [NEW] `components/spot/spot-detail.tsx`: Modal or Drawer for spot details.
-- [NEW] `components/home/filter-bar.tsx`: Category filter chips.
-- [MODIFY] `components/map/map-view.tsx`: Add markers for spots.
+### Authentication
+- [NEW] `components/auth/auth-provider.tsx`: Context to manage user session.
+- [NEW] `components/auth/login-modal.tsx`: Simple email/password login form using Supabase Auth UI or custom form.
+- [NEW] `hooks/use-auth.ts`: Hook to access user and auth methods.
 
-### Pages
-- [MODIFY] `app/page.tsx`: Integrate `FilterBar`, `SpotList` (overlay), and `MapView` with markers.
-
-## Deployment Plan
-### Vercel Deployment
-- **Build Check**: Run `npm run build` locally to ensure no errors.
-- **Environment Variables**: Configure Vercel Project Settings with:
-    - `NEXT_PUBLIC_SUPABASE_URL`
-    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-    - `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
-    - `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID`
-- **Deploy**: Connect GitHub repository to Vercel and deploy.
+### UI Enhancements
+- [MODIFY] `components/spot/spot-card.tsx`: Add "Heart" icon. filled=favorited, outline=not favorited.
+- [MODIFY] `components/spot/spot-detail.tsx`: Add "Heart" button in header.
+- [MODIFY] `app/page.tsx`:
+    - Add "Login" button in header (if not logged in).
+    - Add "My Favorites" filter/tab (if logged in).
 
 ## Verification Plan
 ### Manual Verification
-- Run seed script.
-- Verify spots appear on the Map (markers).
-- Verify spots appear in the List.
-- Click a spot/marker to open Detail view.
-- **Production Check**: Access the Vercel URL and verify all features work similarly to local.
+- **Auth**: Test Sign Up, Login, Logout flows.
+- **Favorites**:
+    - Click heart -> changes to filled.
+    - Reload page -> remains filled.
+    - Click again -> changes to outline (removed).
+    - Check "My Favorites" list -> shows only favorited spots.

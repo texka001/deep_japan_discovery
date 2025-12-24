@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge"
 import { Clock, MapPin } from "lucide-react"
 import Image from "next/image"
+import { FavoriteButton } from "./favorite-button"
 
 type Spot = {
     spot_id: string
@@ -14,9 +15,16 @@ type Spot = {
     image_url: string | null
 }
 
-export function SpotCard({ spot, onClick }: { spot: Spot; onClick?: () => void }) {
+interface SpotCardProps {
+    spot: Spot;
+    isFavorite?: boolean;
+    onToggleFavorite?: (isFav: boolean) => void;
+    onClick?: () => void;
+}
+
+export function SpotCard({ spot, isFavorite, onToggleFavorite, onClick }: SpotCardProps) {
     return (
-        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={onClick}>
+        <Card className="cursor-pointer hover:shadow-lg transition-shadow relative" onClick={onClick}>
             <CardHeader className="p-0 overflow-hidden rounded-t-lg">
                 <div className="relative w-full h-40">
                     {spot.image_url ? (
@@ -31,9 +39,15 @@ export function SpotCard({ spot, onClick }: { spot: Spot; onClick?: () => void }
                             No Image
                         </div>
                     )}
-                    <Badge className="absolute top-2 right-2 bg-black/70 hover:bg-black/80">
+                    <Badge className="absolute top-2 left-2 bg-black/70 hover:bg-black/80">
                         Lvl.{spot.difficulty}
                     </Badge>
+                    <FavoriteButton
+                        spotId={spot.spot_id}
+                        initialIsFavorite={isFavorite}
+                        onToggle={onToggleFavorite}
+                        className="absolute top-2 right-2 bg-white/50 hover:bg-white/90 dark:bg-black/50 dark:hover:bg-black/80 backdrop-blur-sm z-10"
+                    />
                 </div>
             </CardHeader>
             <CardContent className="p-4">

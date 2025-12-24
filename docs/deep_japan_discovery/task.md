@@ -17,6 +17,18 @@
     - [x] Landing Page / Home View
     - [x] Spot List View
     - [x] Spot Detail View
-- [/] Deployment
+- [x] Deployment
     - [x] Build Check (Local)
-    - [ ] Deploy to Vercel
+    - [x] Push to GitHub
+    - [x] Deploy to Vercel
+
+## Phase 2: User Features (Auth & Favorites)
+- [x] Authentication Setup
+    - [x] Configure Supabase Auth (Email/Password)
+    - [x] Create AuthProvider & Hooks
+    - [x] Implement Login/Signup UI (Modal or Page)
+- [x] Favorites Feature
+    - [x] Create `favorites` table in Supabase
+    - [x] Implement toggle favorite API/logic
+    - [x] Add Favorite Button to Spot Card/Detail
+    - [x] Create "My Favorites" List View

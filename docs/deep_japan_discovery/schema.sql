@@ -49,3 +49,18 @@ create policy "Users can view their own journeys" on public.journeys for select 
 create policy "Users can create their own journeys" on public.journeys for insert with check (auth.uid() = user_id);
 create policy "Users can update their own journeys" on public.journeys for update using (auth.uid() = user_id);
 create policy "Users can delete their own journeys" on public.journeys for delete using (auth.uid() = user_id);
+
+-- Favorites Table (Phase 2)
+create table public.favorites (
+  favorite_id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  spot_id uuid references public.spots(spot_id) on delete cascade not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(user_id, spot_id) -- Prevent duplicate favorites
+);
+
+-- RLS for Favorites
+alter table public.favorites enable row level security;
+create policy "Users can view their own favorites" on public.favorites for select using (auth.uid() = user_id);
+create policy "Users can add favorites" on public.favorites for insert with check (auth.uid() = user_id);
+create policy "Users can remove favorites" on public.favorites for delete using (auth.uid() = user_id);

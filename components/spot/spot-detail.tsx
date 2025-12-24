@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { Clock, MapPin, AlertTriangle, MessageCircle, Info } from "lucide-react"
+import { FavoriteButton } from "./favorite-button"
 
 type Spot = {
     spot_id: string
@@ -26,9 +27,11 @@ interface SpotDetailProps {
     spot: Spot | null
     open: boolean
     onOpenChange: (open: boolean) => void
+    isFavorite?: boolean
+    onToggleFavorite?: (isFav: boolean) => void
 }
 
-export function SpotDetail({ spot, open, onOpenChange }: SpotDetailProps) {
+export function SpotDetail({ spot, open, onOpenChange, isFavorite, onToggleFavorite }: SpotDetailProps) {
     if (!spot) return null
 
     const guide = spot.deep_guide_json || {}
@@ -52,18 +55,26 @@ export function SpotDetail({ spot, open, onOpenChange }: SpotDetailProps) {
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white rounded-full"
+                        className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white rounded-full z-20"
                         onClick={() => onOpenChange(false)}
                     >
                         ✕
                     </Button>
+                    <div className="absolute top-4 left-4 z-20">
+                        <FavoriteButton
+                            spotId={spot.spot_id}
+                            initialIsFavorite={isFavorite}
+                            onToggle={onToggleFavorite}
+                            className="bg-white/50 hover:bg-white/90 text-black dark:bg-black/50 dark:text-white backdrop-blur-sm"
+                        />
+                    </div>
                 </div>
 
                 <div className="p-6 space-y-6">
                     {/* Header */}
                     <div>
                         <div className="flex justify-between items-start">
-                            <h2 className="text-2xl font-bold">{spot.name_en}</h2>
+                            <SheetTitle className="text-2xl font-bold text-left">{spot.name_en}</SheetTitle>
                             <Badge variant="outline" className="mt-1">Lvl.{spot.difficulty}</Badge>
                         </div>
                         <p className="text-muted-foreground">{spot.name_jp}</p>
