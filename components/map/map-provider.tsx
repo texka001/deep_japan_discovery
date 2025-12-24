@@ -12,7 +12,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
     }
 
     return (
-        <APIProvider apiKey={API_KEY}>
+        <APIProvider apiKey={API_KEY} libraries={['routes', 'geometry']}>
             {children}
         </APIProvider>
     );

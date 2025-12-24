@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Clock, MapPin } from "lucide-react"
 import Image from "next/image"
 import { FavoriteButton } from "./favorite-button"
+import { getGoogleMapsUrl } from "@/lib/location"
 
 import { Spot } from "@/types"
 
@@ -58,6 +59,18 @@ export function SpotCard({ spot, isFavorite, onToggleFavorite, onClick }: SpotCa
                         <span>{spot.avg_stay_minutes} min</span>
                     </div>
                     {/* Distance could be calculated if we had current location here */}
+
+                    <a
+                        href={getGoogleMapsUrl(spot)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 hover:underline ml-auto"
+                        title="Open in Google Maps"
+                    >
+                        <MapPin className="w-3 h-3" />
+                        Google Maps
+                    </a>
                 </div>
             </CardContent>
         </Card>

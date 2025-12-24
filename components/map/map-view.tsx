@@ -2,83 +2,50 @@
 
 import { Map, AdvancedMarker, Pin, useMap } from '@vis.gl/react-google-maps';
 import { useGeolocation } from '@/hooks/use-geolocation';
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Locate } from 'lucide-react';
+import { getCoordinates } from '@/lib/location';
+import { Spot, RouteLeg } from '@/types';
 
 const DEFAULT_CENTER = { lat: 35.698379, lng: 139.773099 }; // Akihabara
 
-type Spot = {
-    spot_id: string;
-    name_en: string;
-    location: string;
-};
-
 interface MapViewProps {
-    spots?: Spot[];
-    onMarkerClick?: (spot: Spot) => void;
-    selectedSpotId?: string | null;
+    spots: Spot[];
+    onMarkerClick: (spot: Spot) => void;
+    selectedSpotId?: string;
+    isRouteMode?: boolean;
+    onRouteSpotSelect?: (spot: Spot) => void;
+    selectedRouteSpots?: Spot[]; // Spots currently selected for route
+    routePath?: Spot[]; // Calculated ordered path
+    routeLegs?: RouteLeg[]; // Add support for detailed legs
+    favoriteSpotIds?: Set<string>; // Set of favorite spot IDs
 }
 
-export const MapView = ({ spots = [], onMarkerClick, selectedSpotId }: MapViewProps) => {
+export const MapView = ({
+    spots = [],
+    onMarkerClick,
+    selectedSpotId,
+    isRouteMode,
+    onRouteSpotSelect,
+    selectedRouteSpots = [],
+    routePath,
+    routeLegs,
+    favoriteSpotIds = new Set()
+}: MapViewProps) => {
     const { location, loading, getLocation } = useGeolocation();
     const map = useMap(); // Access the map instance
+    // const polylineRef = useRef<google.maps.Polyline | null>(null); // Removed as per instruction
 
     // Use Akihabara as the initial view, don't auto-pan to user location
     const initialCenter = DEFAULT_CENTER;
-
-    const parseHexFloat64 = (hex: string) => {
-        const buffer = new ArrayBuffer(8);
-        const view = new DataView(buffer);
-        // Hex is 16 chars. Parse pairs.
-        // PostGIS WKB is Little Endian (01).
-        // Example Hex: 848E17A14A786140 -> Double
-        // Provide bytes in reverse order for Big Endian DataView setResponse? 
-        // Or just set byte by byte.
-        for (let i = 0; i < 8; i++) {
-            const byteVal = parseInt(hex.substr(i * 2, 2), 16);
-            view.setUint8(i, byteVal);
-        }
-        return view.getFloat64(0, true); // true for littleEndian
-    };
-
-    const getCoordinates = (locationString: string) => {
-        if (!locationString) return null;
-
-        // CHECK FOR HEX FORMAT (PostGIS WKB)
-        // Starts with 0101000020E6100000 (18 chars header for Point 4326)
-        if (locationString.startsWith('0101000020E6100000')) {
-            try {
-                // Header (18 chars) + Lng (16 chars) + Lat (16 chars)
-                const lngHex = locationString.substr(18, 16);
-                const latHex = locationString.substr(34, 16);
-
-                const lng = parseHexFloat64(lngHex);
-                const lat = parseHexFloat64(latHex);
-                return { lat, lng };
-            } catch (e) {
-                console.error("Error parsing hex location", e);
-            }
-        }
-
-        // CHECK FOR WKT FORMAT "POINT(lng lat)"
-        try {
-            const match = locationString.match(/POINT\(([\d\.-]+) ([\d\.-]+)\)/); // Added minus for negative coords
-            if (match) {
-                return { lng: parseFloat(match[1]), lat: parseFloat(match[2]) };
-            }
-        } catch (e) {
-            console.error("Error parsing WKT location", locationString, e);
-        }
-        return null;
-    };
 
     // Pan to selected spot
     useEffect(() => {
         if (!map || !selectedSpotId || !spots) return;
         const spot = spots.find(s => s.spot_id === selectedSpotId);
         if (spot) {
-            const coords = getCoordinates(spot.location);
+            const coords = getCoordinates(spot.location || '');
             if (coords) {
                 map.panTo(coords);
                 map.setZoom(16);
@@ -94,6 +61,63 @@ export const MapView = ({ spots = [], onMarkerClick, selectedSpotId }: MapViewPr
             getLocation(); // Try to fetch again
         }
     };
+
+    // Draw Route Polyline
+    useEffect(() => {
+        if (!map || !isRouteMode) return;
+
+        // If we have detailed legs, use them
+        if (routeLegs && routeLegs.length > 0) {
+            const polylines: google.maps.Polyline[] = [];
+
+            routeLegs.forEach((leg) => {
+                if (!leg.polyline) return;
+
+                const color = leg.mode === 'TRANSIT' ? '#2563EB' : '#EA4335';
+                const path = google.maps.geometry.encoding.decodePath(leg.polyline);
+
+                const line = new google.maps.Polyline({
+                    path: path,
+                    geodesic: true,
+                    strokeColor: color,
+                    strokeOpacity: 0.8,
+                    strokeWeight: 5,
+                    map: map,
+                    icons: leg.mode === 'TRANSIT' ? [{
+                        icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 2 },
+                        offset: '0',
+                        repeat: '10px'
+                    }] : undefined
+                });
+                polylines.push(line);
+            });
+
+            return () => {
+                polylines.forEach(p => p.setMap(null));
+            };
+        }
+
+        // Fallback: Straight lines
+        else if (routePath && routePath.length > 1) {
+            const path = routePath.map(s => {
+                const c = getCoordinates(s.location || '');
+                return c ? { lat: c.lat, lng: c.lng } : null;
+            }).filter(c => c !== null) as google.maps.LatLngLiteral[];
+
+            const routeLine = new google.maps.Polyline({
+                path: path,
+                geodesic: true,
+                strokeColor: '#FF0000',
+                strokeOpacity: 1.0,
+                strokeWeight: 3,
+                map: map,
+            });
+
+            return () => {
+                routeLine.setMap(null);
+            };
+        }
+    }, [map, routePath, routeLegs, isRouteMode]);
 
     return (
         <div className="w-full h-full min-h-[400px] relative">
@@ -112,22 +136,73 @@ export const MapView = ({ spots = [], onMarkerClick, selectedSpotId }: MapViewPr
                 )}
 
                 {spots.map((spot) => {
-                    const position = getCoordinates(spot.location);
+                    const position = getCoordinates(spot.location || '');
                     if (!position) return null;
                     const isSelected = spot.spot_id === selectedSpotId;
+                    const isFavorite = favoriteSpotIds.has(spot.spot_id);
+                    // if (isFavorite) console.log("Rendering favorite spot:", spot.name_en);
+
+                    // Route Selection State
+                    const isRouteSelected = isRouteMode && selectedRouteSpots.some(s => s.spot_id === spot.spot_id);
+                    const isStartPoint = routePath && routePath.length > 0 && routePath[0].spot_id === spot.spot_id;
+
+                    // Determine visual style
+                    let pinBackground = '#FBBC04'; // Default Yellow
+                    let pinScale = 1.0;
+                    let zIndex = 1;
+
+                    // Route numbering
+                    let routeIndex = -1;
+                    if (isRouteMode && routePath && routePath.length > 0) {
+                        routeIndex = routePath.findIndex(s => s.spot_id === spot.spot_id);
+                    }
+
+                    if (isRouteMode) {
+                        if (isStartPoint || routeIndex === 0) {
+                            pinBackground = '#0F9D58'; // Green for start
+                            pinScale = 1.3;
+                            zIndex = 20;
+                        } else if (isRouteSelected || routeIndex > 0) {
+                            pinBackground = '#4285F4'; // Blue for selected/route
+                            pinScale = 1.1;
+                            zIndex = 10;
+                        } else {
+                            pinBackground = '#9AA0A6'; // Gray for unselected in route mode
+                            pinScale = 0.9;
+                        }
+                    } else {
+                        if (isSelected) {
+                            pinBackground = '#EA4335'; // Red
+                            pinScale = 1.2;
+                            zIndex = 10;
+                        }
+                    }
 
                     return (
                         <AdvancedMarker
                             key={spot.spot_id}
                             position={position}
-                            onClick={() => onMarkerClick?.(spot)}
-                            zIndex={isSelected ? 10 : 1}
+                            onClick={() => {
+                                if (isRouteMode && onRouteSpotSelect) {
+                                    onRouteSpotSelect(spot);
+                                } else {
+                                    onMarkerClick?.(spot);
+                                }
+                            }}
+                            zIndex={zIndex}
                         >
                             <Pin
-                                background={isSelected ? '#EA4335' : '#FBBC04'}
-                                glyphColor={'#000'}
+                                background={pinBackground}
+                                glyphColor={'#FFFFFF'}
                                 borderColor={'#000'}
-                                scale={isSelected ? 1.2 : 1.0}
+                                scale={pinScale}
+                                glyph={
+                                    routeIndex >= 0
+                                        ? (routeIndex + 1).toString()
+                                        : isFavorite
+                                            ? "♥"
+                                            : undefined
+                                }
                             />
                         </AdvancedMarker>
                     );
@@ -147,11 +222,13 @@ export const MapView = ({ spots = [], onMarkerClick, selectedSpotId }: MapViewPr
                 </Button>
             </div>
 
-            {loading && (
-                <div className="absolute top-20 left-4 bg-white/80 p-2 rounded shadow text-xs backdrop-blur-md">
-                    Retrieving location...
-                </div>
-            )}
-        </div>
+            {
+                loading && (
+                    <div className="absolute top-20 left-4 bg-white/80 p-2 rounded shadow text-xs backdrop-blur-md">
+                        Retrieving location...
+                    </div>
+                )
+            }
+        </div >
     );
 };

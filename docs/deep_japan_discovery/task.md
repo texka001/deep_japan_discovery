@@ -46,3 +46,45 @@
     - [x] Implement UGC Upload & Edit flows
 - [x] Data Entry
     - [x] Tooling established (Spot Generator & UGC). Manual entry pending user action.
+
+## Phase 6: My Route Feature (Journeys)
+- [x] Requirements & Schema
+    - [x] Verify `journeys` table existence
+    - [x] Define JSON structure for `route_json`
+- [x] Route Builder UI
+    - [x] Implement "Route Mode" (Select/Deselect spots)
+    - [x] UI to choose "Start Point" from selected spots
+    - [x] "Save Route" functionality
+- [x] Route Logic & Visualization
+    - [x] Implement Route Optimization Algorithm (Start Node -> Nearest Neighbor)
+    - [x] Display Saved Routes List
+    - [x] Visualize Route on Map (Polylines)
+    - [x] Calculate & Display Total Time (Stay time + Travel time estimate)
+
+## Phase 7: Advanced Route Calculation (Transit & Walking)
+- [x] Google Maps Directions Integration
+    - [x] Import `useMapsLibrary('routes')` (Done via `libraries` prop in Provider)
+    - [x] Implement `fetchRouteDetails` to get real API data for segments
+- [x] Updated Optimization Logic
+    - [x] Keep Haversine for sorting (Greedy NN)
+    - [x] Calculate actual duration/distance using Directions API for the final path
+    - [x] Update `calculatedRoute` state with precise data
+- [x] UI Updates
+    - [x] Display breakdown (Travel Time vs Stay Time)
+    - [x] Show "Walking" vs "Transit" icons if available
+
+## Phase 8: UX Refinements (Current)
+- [x] Route Selection UX
+    - [x] Change Pin Click to open Spot Detail (instead of toggle)
+    - [x] Add "Add to Route" / "Remove from Route" button in Spot Detail
+- [x] Map Markers
+    - [x] Indicate "Favorite" status on Pins (Heart Icon)
+    - [x] Display Route Numbers on pins (1, 2, 3...)
+- [x] Spot Info
+    - [x] Add "Open in Google Maps" link to Spot Card/Detail
+
+#### Phase 9: Admin Edit Features (Current)
+- [x] Create Advanced Spot Editor
+    - [x] Build `SpotEditor` component for Admin Dashboard
+    - [x] Implement Deep Guide editor (JSON handling)
+    - [x] Integrate into `app/admin/page.tsx` (Direct Update)

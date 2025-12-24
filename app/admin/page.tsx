@@ -10,19 +10,67 @@ import { supabase } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
+import { SpotEditor } from '@/components/admin/spot-editor';
+import { Spot } from '@/types';
+
 export default function AdminPage() {
     const { user } = useAuth();
+    // Generator States
     const [inputName, setInputName] = useState('');
     const [inputUrl, setInputUrl] = useState('');
     const [loading, setLoading] = useState(false);
     const [generatedData, setGeneratedData] = useState<any>(null);
     const [successMsg, setSuccessMsg] = useState('');
 
-    // New States for UGC
-    const [activeTab, setActiveTab] = useState<'generator' | 'ugc'>('generator');
+    // Tab State
+    const [activeTab, setActiveTab] = useState<'generator' | 'editor' | 'ugc'>('generator');
+
+    // UGC States
     const [pendingPhotos, setPendingPhotos] = useState<any[]>([]);
     const [pendingCorrections, setPendingCorrections] = useState<any[]>([]);
 
+    // Editor States
+    const [allSpots, setAllSpots] = useState<Spot[]>([]);
+    const [selectedSpotId, setSelectedSpotId] = useState<string>('');
+    const [editingSpot, setEditingSpot] = useState<Spot | null>(null);
+
+    // Fetch all spots for the editor dropdown
+    const fetchAllSpots = async () => {
+        const { data } = await supabase.from('spots').select('*').order('name_en');
+        if (data) setAllSpots(data);
+    };
+
+    const handleSelectSpotToEdit = (spotId: string) => {
+        setSelectedSpotId(spotId);
+        const spot = allSpots.find(s => s.spot_id === spotId);
+        setEditingSpot(spot || null);
+    };
+
+    const handleSaveEditedSpot = async (updatedData: Partial<Spot>) => {
+        if (!editingSpot) return;
+        setLoading(true);
+        try {
+            const { error } = await supabase
+                .from('spots')
+                .update(updatedData)
+                .eq('spot_id', editingSpot.spot_id);
+
+            if (error) throw error;
+
+            alert('Spot updated successfully!');
+            // Refresh local data
+            const { data } = await supabase.from('spots').select('*').eq('spot_id', editingSpot.spot_id).single();
+            if (data) setEditingSpot(data);
+            fetchAllSpots(); // Refresh list just in case names changed
+        } catch (e: any) {
+            console.error(e);
+            alert('Failed to update: ' + e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ... (Existing Generator Functions: handleGenerate, handleSave) ...
     const handleGenerate = async () => {
         setLoading(true);
         setSuccessMsg('');
@@ -51,11 +99,6 @@ export default function AdminPage() {
         setLoading(true);
 
         try {
-            // Prepare data for Supabase
-            // Location needs to be inserted carefully. 
-            // Supabase-js often handles GeoJSON if postgis is set up, 
-            // but simpler is to rely on a text representation or use a raw query if needed.
-            // Let's try the standard GeoJSON format supported by PostgREST 
             const location = generatedData.location || `POINT(${generatedData.lng} ${generatedData.lat})`;
 
             const { error } = await supabase.from('spots').insert({
@@ -69,13 +112,11 @@ export default function AdminPage() {
                 tags: generatedData.tags,
                 images: generatedData.images,
                 deep_guide_json: generatedData.deep_guide_json,
-                location: location, // PostgREST can often parse WKT for geography
+                location: location,
                 image_url: generatedData.images?.[0] || null
             });
 
-            if (error) {
-                throw error;
-            }
+            if (error) throw error;
 
             setSuccessMsg('Spot saved successfully!');
             setGeneratedData(null);
@@ -90,24 +131,18 @@ export default function AdminPage() {
         }
     };
 
-    // Fetch UGC data when tab changes to 'ugc'
+    // ... (Existing UGC Functions) ...
     const fetchUGC = async () => {
         setLoading(true);
         const { data: photos } = await supabase
             .from('spot_photos')
-            .select(`
-                *,
-                spots (name_en)
-            `)
+            .select(`*, spots (name_en)`)
             .eq('status', 'pending')
             .order('created_at', { ascending: false });
 
         const { data: corrections } = await supabase
             .from('spot_corrections')
-            .select(`
-                *,
-                spots (name_en)
-            `)
+            .select(`*, spots (name_en)`)
             .eq('status', 'pending')
             .order('created_at', { ascending: false });
 
@@ -117,16 +152,11 @@ export default function AdminPage() {
     };
 
     const handleApprovePhoto = async (id: string, spotId: string, url: string) => {
-        // 1. Update status
         await supabase.from('spot_photos').update({ status: 'approved' }).eq('photo_id', id);
-
-        // 2. Add to spots images array
-        // Fetch current images first
         const { data: spot } = await supabase.from('spots').select('images').eq('spot_id', spotId).single();
         const currentImages = spot?.images || [];
         await supabase.from('spots').update({ images: [...currentImages, url] }).eq('spot_id', spotId);
-
-        fetchUGC(); // Refresh
+        fetchUGC();
     };
 
     const handleRejectPhoto = async (id: string) => {
@@ -135,15 +165,7 @@ export default function AdminPage() {
     };
 
     const handleApproveCorrection = async (correction: any) => {
-        // 1. Update spot with new data
-        // Only update fields that are present in the correction (though simplified here to update field by field logic if needed, 
-        // usually we'd parse the corrected_data json)
-        // For now, let's assume corrected_data matches the partial spot schema
-
-        // correction.corrected_data is JSONB.
         await supabase.from('spots').update(correction.corrected_data || correction.suggested_data).eq('spot_id', correction.spot_id);
-
-        // 2. Update status
         await supabase.from('spot_corrections').update({ status: 'approved' }).eq('correction_id', correction.correction_id);
         fetchUGC();
     };
@@ -164,12 +186,18 @@ export default function AdminPage() {
                 <Link href="/" className="text-blue-500 hover:underline">Back to Home</Link>
             </div>
 
-            <div className="flex gap-4 mb-6 border-b pb-2">
+            <div className="flex gap-4 mb-6 border-b pb-2 overflow-x-auto">
                 <Button
                     variant={activeTab === 'generator' ? 'default' : 'ghost'}
                     onClick={() => setActiveTab('generator')}
                 >
                     Spot Generator
+                </Button>
+                <Button
+                    variant={activeTab === 'editor' ? 'default' : 'ghost'}
+                    onClick={() => { setActiveTab('editor'); fetchAllSpots(); }}
+                >
+                    Spot Editor
                 </Button>
                 <Button
                     variant={activeTab === 'ugc' ? 'default' : 'ghost'}
@@ -179,13 +207,13 @@ export default function AdminPage() {
                 </Button>
             </div>
 
-            {activeTab === 'generator' ? (
+            {/* GENERATOR TAB */}
+            {activeTab === 'generator' && (
                 <>
                     <Card className="mb-8">
                         <CardHeader>
                             <CardTitle>Spot Generator (AI)</CardTitle>
                         </CardHeader>
-                        {/* ... Existing Generator Content ... */}
                         <CardContent className="space-y-4">
                             <div>
                                 <Label>Spot Name</Label>
@@ -209,9 +237,10 @@ export default function AdminPage() {
                             </Button>
                         </CardContent>
                     </Card>
-
+                    {/* ... Result Card omitted for brevity if unchanged, but putting logic here ... */}
                     {generatedData && (
                         <Card className="border-green-500 border-2">
+                            {/* Reusing existing preview UI logic... */}
                             <CardHeader className="bg-green-50 dark:bg-green-900/20">
                                 <CardTitle className="text-green-700 dark:text-green-300">Preview Generated Data</CardTitle>
                             </CardHeader>
@@ -246,7 +275,7 @@ export default function AdminPage() {
                                         <Label>Category</Label>
                                         <select
                                             className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                            value={generatedData.category}
+                                            value={generatedData.category || 'Other'}
                                             onChange={e => setGeneratedData({ ...generatedData, category: e.target.value })}
                                         >
                                             <option value="Subculture">Subculture</option>
@@ -291,7 +320,43 @@ export default function AdminPage() {
                         </Card>
                     )}
                 </>
-            ) : (
+            )}
+
+            {/* EDITOR TAB */}
+            {activeTab === 'editor' && (
+                <div className="space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Select a Spot to Edit</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <select
+                                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                value={selectedSpotId}
+                                onChange={e => handleSelectSpotToEdit(e.target.value)}
+                            >
+                                <option value="">-- Select Spot --</option>
+                                {allSpots.map(s => (
+                                    <option key={s.spot_id} value={s.spot_id}>
+                                        {s.name_en} ({s.name_jp})
+                                    </option>
+                                ))}
+                            </select>
+                        </CardContent>
+                    </Card>
+
+                    {editingSpot && (
+                        <SpotEditor
+                            spot={editingSpot}
+                            onSave={handleSaveEditedSpot}
+                            onCancel={() => { setEditingSpot(null); setSelectedSpotId(''); }}
+                        />
+                    )}
+                </div>
+            )}
+
+            {/* UGC TAB */}
+            {activeTab === 'ugc' && (
                 <div className="space-y-6">
                     <section>
                         <h2 className="text-xl font-bold mb-2">Pending Photos ({pendingPhotos.length})</h2>
@@ -343,8 +408,7 @@ export default function AdminPage() {
             )}
 
             {successMsg && (
-                <div className="mt-4 p-4 bg-green-100 text-green-800 rounded text-center font-bold animate-bounce hidden">
-                    {/* Hide global success in tab mode to allow local feedback or reuse toast later */}
+                <div className="mt-4 p-4 bg-green-100 text-green-800 rounded text-center font-bold animate-bounce fixed bottom-4 right-4 z-50 shadow-lg">
                     {successMsg}
                 </div>
             )}

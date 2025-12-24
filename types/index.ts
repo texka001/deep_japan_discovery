@@ -12,6 +12,7 @@ export type Spot = {
     images?: string[];
     tags?: string[];
     created_at?: string;
+    location?: string; // WKT or similar if needed
 };
 
 export type UserProfile = {
@@ -19,3 +20,48 @@ export type UserProfile = {
     subscription_status: 'Free' | 'Pro';
     created_at: string;
 };
+
+export interface RouteLeg {
+    from_spot_id: string;
+    to_spot_id: string;
+    mode: 'WALKING' | 'TRANSIT';
+    duration_minutes: number;
+    distance_meters: number;
+    polyline?: string; // Encoded polyline
+}
+
+export interface RouteData {
+    stops: Spot[];
+    legs: RouteLeg[];
+    total_duration: number; // minutes
+    total_distance: number; // meters (approx)
+    start_spot_id: string;
+}
+
+export interface Journey {
+    journey_id: string;
+    user_id: string;
+    title: string;
+    route_json: RouteData;
+    created_at: string;
+}
+
+export interface SpotCorrection {
+    correction_id: string;
+    spot_id: string;
+    user_id: string;
+    suggested_data: any;
+    status: 'pending' | 'approved' | 'rejected';
+    created_at: string;
+    spots?: Spot;
+}
+
+export interface SpotPhoto {
+    photo_id: string;
+    spot_id: string;
+    user_id: string;
+    image_url: string;
+    status: 'pending' | 'approved' | 'rejected';
+    created_at: string;
+    spots?: Spot;
+}

@@ -9,12 +9,13 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
-import { Clock, MapPin, AlertTriangle, MessageCircle, Info, Camera, Edit } from "lucide-react"
+import { Clock, MapPin, AlertTriangle, MessageCircle, Info, Camera, Edit, PlusCircle, MinusCircle, ExternalLink } from "lucide-react"
 import { FavoriteButton } from "./favorite-button"
 import { useState } from "react"
 import { useAuth } from "@/components/auth/auth-provider"
 import { UploadPhotoModal } from "@/components/ugc/upload-photo-modal"
 import { SuggestEditModal } from "@/components/ugc/suggest-edit-modal"
+import { getGoogleMapsUrl } from "@/lib/location"
 
 import { Spot } from "@/types"
 
@@ -24,9 +25,12 @@ interface SpotDetailProps {
     onOpenChange: (open: boolean) => void
     isFavorite?: boolean
     onToggleFavorite?: (isFav: boolean) => void
+    isInRoute?: boolean;
+    isRouteMode?: boolean;
+    onToggleRoute?: () => void;
 }
 
-export function SpotDetail({ spot, open, onOpenChange, isFavorite, onToggleFavorite }: SpotDetailProps) {
+export function SpotDetail({ spot, open, onOpenChange, isFavorite, onToggleFavorite, isInRoute, isRouteMode, onToggleRoute }: SpotDetailProps) {
     if (!spot) return null
 
     const guide = spot.deep_guide_json || {}
@@ -68,7 +72,27 @@ export function SpotDetail({ spot, open, onOpenChange, isFavorite, onToggleFavor
                     </div>
                 </div>
 
-                <div className="p-6 space-y-6">
+                <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
+                    {/* Route Action Button (Only in Route Mode) */}
+                    {isRouteMode && onToggleRoute && (
+                        <Button
+                            className={`w-full ${isInRoute ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
+                            onClick={onToggleRoute}
+                        >
+                            {isInRoute ? (
+                                <>
+                                    <MinusCircle className="w-4 h-4 mr-2" />
+                                    Remove from Route
+                                </>
+                            ) : (
+                                <>
+                                    <PlusCircle className="w-4 h-4 mr-2" />
+                                    Add to Route
+                                </>
+                            )}
+                        </Button>
+                    )}
+
                     {/* Header */}
                     <div>
                         <div className="flex justify-between items-start">
@@ -81,6 +105,15 @@ export function SpotDetail({ spot, open, onOpenChange, isFavorite, onToggleFavor
                             <div className="flex items-center text-sm text-gray-500 mt-1 gap-1">
                                 <MapPin className="w-3 h-3 flex-shrink-0" />
                                 <span>{spot.address}</span>
+                                <a
+                                    href={getGoogleMapsUrl(spot)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="ml-2 text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-0.5 text-xs font-medium"
+                                >
+                                    Google Maps
+                                    <ExternalLink className="w-3 h-3" />
+                                </a>
                             </div>
                         )}
 
