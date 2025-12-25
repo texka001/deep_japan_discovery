@@ -88,7 +88,6 @@
     - [x] Build `SpotEditor` component for Admin Dashboard
     - [x] Implement Deep Guide editor (JSON handling)
     - [x] Integrate into `app/admin/page.tsx` (Direct Update)
-    - [x] Integrate into `app/admin/page.tsx` (Direct Update)
     - [x] Push latest changes for production deployment
 
 ## Phase 10: Unique Card ID System (Current)
@@ -98,3 +97,5 @@
 - [x] Admin Features
     - [x] Add Search by ID to Admin Page
     - [x] Display Card ID in Spot Editor
+    - [x] Add Search by Name/Content to Spot Editor List
+    - [x] Display Card ID and Copy Button on Spot Card
