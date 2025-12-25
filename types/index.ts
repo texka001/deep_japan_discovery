@@ -13,6 +13,7 @@ export type Spot = {
     tags?: string[];
     created_at?: string;
     location?: string; // WKT or similar if needed
+    card_id?: number;
 };
 
 export type UserProfile = {

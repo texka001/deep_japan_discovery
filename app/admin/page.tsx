@@ -33,6 +33,7 @@ export default function AdminPage() {
     const [allSpots, setAllSpots] = useState<Spot[]>([]);
     const [selectedSpotId, setSelectedSpotId] = useState<string>('');
     const [editingSpot, setEditingSpot] = useState<Spot | null>(null);
+    const [searchId, setSearchId] = useState('');
 
     // Fetch all spots for the editor dropdown
     const fetchAllSpots = async () => {
@@ -71,6 +72,35 @@ export default function AdminPage() {
     };
 
     // ... (Existing Generator Functions: handleGenerate, handleSave) ...
+    const handleSearchById = async () => {
+        if (!searchId) return;
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('spots')
+                .select('*')
+                .eq('card_id', parseInt(searchId))
+                .single();
+
+            if (error) throw error;
+            if (data) {
+                setEditingSpot(data);
+                setSelectedSpotId(data.spot_id);
+                // Also ensure it's in allSpots if not already (though fetchAllSpots should handle it usually)
+                if (!allSpots.find(s => s.spot_id === data.spot_id)) {
+                    setAllSpots([data, ...allSpots]);
+                }
+            } else {
+                alert('Spot not found with ID: ' + searchId);
+            }
+        } catch (e: any) {
+            console.error(e);
+            alert('Error searching: ' + e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleGenerate = async () => {
         setLoading(true);
         setSuccessMsg('');
@@ -327,21 +357,49 @@ export default function AdminPage() {
                 <div className="space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Select a Spot to Edit</CardTitle>
+                            <CardTitle>Find Spot</CardTitle>
                         </CardHeader>
-                        <CardContent>
-                            <select
-                                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                value={selectedSpotId}
-                                onChange={e => handleSelectSpotToEdit(e.target.value)}
-                            >
-                                <option value="">-- Select Spot --</option>
-                                {allSpots.map(s => (
-                                    <option key={s.spot_id} value={s.spot_id}>
-                                        {s.name_en} ({s.name_jp})
-                                    </option>
-                                ))}
-                            </select>
+                        <CardContent className="space-y-4">
+                            <div className="flex gap-2 items-end">
+                                <div className="flex-1">
+                                    <Label>Search by Card ID</Label>
+                                    <div className="flex gap-2">
+                                        <Input
+                                            placeholder="e.g. 12345678"
+                                            value={searchId}
+                                            onChange={e => setSearchId(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && handleSearchById()}
+                                        />
+                                        <Button onClick={handleSearchById} disabled={loading}>
+                                            Search
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="relative">
+                                <div className="absolute inset-0 flex items-center">
+                                    <span className="w-full border-t" />
+                                </div>
+                                <div className="relative flex justify-center text-xs uppercase">
+                                    <span className="bg-background px-2 text-muted-foreground">Or select from list</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <select
+                                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                    value={selectedSpotId}
+                                    onChange={e => handleSelectSpotToEdit(e.target.value)}
+                                >
+                                    <option value="">-- Select Spot --</option>
+                                    {allSpots.map(s => (
+                                        <option key={s.spot_id} value={s.spot_id}>
+                                            {s.name_en} ({s.name_jp})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </CardContent>
                     </Card>
 

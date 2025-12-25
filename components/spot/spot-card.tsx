@@ -50,8 +50,11 @@ export function SpotCard({ spot, isFavorite, onToggleFavorite, onClick }: SpotCa
                         <CardDescription className="text-sm text-muted-foreground line-clamp-1">{spot.name_jp}</CardDescription>
                     </div>
                 </div>
-                <div className="flex gap-2 mb-2">
+                <div className="flex gap-2 mb-2 items-center">
                     <Badge variant="outline" className="text-xs">{spot.category}</Badge>
+                    {spot.card_id && (
+                        <span className="text-xs text-muted-foreground font-mono">#{spot.card_id}</span>
+                    )}
                 </div>
                 <div className="flex items-center text-sm text-gray-500 gap-4">
                     <div className="flex items-center gap-1">

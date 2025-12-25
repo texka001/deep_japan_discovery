@@ -72,6 +72,14 @@ export function SpotEditor({ spot, onSave, onCancel }: SpotEditorProps) {
                     </TabsList>
 
                     <TabsContent value="basic" className="space-y-4">
+                        <div>
+                            <Label>Card ID</Label>
+                            <Input
+                                value={formData.card_id ?? 'Not Assigned'}
+                                disabled
+                                className="bg-slate-100 dark:bg-slate-800 font-mono"
+                            />
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <Label>Name (EN)</Label>
