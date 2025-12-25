@@ -84,6 +84,7 @@ Implemented the "My Route" (Journeys) feature, allowing users to create, optimiz
 ## Phase 10: Unique Card ID System
 - **Database**: Added `card_id` (BIGINT) to `spots` table with unique constraint and random 8-digit generation logic (10000000-99999999).
 - **Monitor**: Added "Search by Card ID" input in Spot Editor tab.
+  - Added "Filter by Name" input to filter the spot selection dropdown.
   - Displayed `Card ID` in Spot Editor (read-only).
 - **UI**: Added `Card ID` display (`#12345678`) to the Spot Card on the main list.
   - Added Copy Button (icon) next to the ID for easy copying.

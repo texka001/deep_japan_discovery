@@ -34,6 +34,7 @@ export default function AdminPage() {
     const [selectedSpotId, setSelectedSpotId] = useState<string>('');
     const [editingSpot, setEditingSpot] = useState<Spot | null>(null);
     const [searchId, setSearchId] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Fetch all spots for the editor dropdown
     const fetchAllSpots = async () => {
@@ -395,17 +396,30 @@ export default function AdminPage() {
                             </div>
 
                             <div>
+                                <Label>Filter by Name</Label>
+                                <Input
+                                    placeholder="Type to filter list..."
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                    className="mb-2"
+                                />
                                 <select
                                     className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                     value={selectedSpotId}
                                     onChange={e => handleSelectSpotToEdit(e.target.value)}
                                 >
                                     <option value="">-- Select Spot --</option>
-                                    {allSpots.map(s => (
-                                        <option key={s.spot_id} value={s.spot_id}>
-                                            {s.name_en} ({s.name_jp})
-                                        </option>
-                                    ))}
+                                    {allSpots
+                                        .filter(s =>
+                                            !searchTerm ||
+                                            s.name_en.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                            s.name_jp.includes(searchTerm)
+                                        )
+                                        .map(s => (
+                                            <option key={s.spot_id} value={s.spot_id}>
+                                                {s.name_en} ({s.name_jp})
+                                            </option>
+                                        ))}
                                 </select>
                             </div>
                         </CardContent>
