@@ -396,19 +396,14 @@ export default function AdminPage() {
                             </div>
 
                             <div>
-                                <Label>Filter by Name</Label>
+                                <Label>Filter by Name / Content</Label>
                                 <Input
-                                    placeholder="Type to filter list..."
+                                    placeholder="Filter by name, description, address..."
                                     value={searchTerm}
                                     onChange={e => setSearchTerm(e.target.value)}
                                     className="mb-2"
                                 />
-                                <select
-                                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                    value={selectedSpotId}
-                                    onChange={e => handleSelectSpotToEdit(e.target.value)}
-                                >
-                                    <option value="">-- Select Spot --</option>
+                                <div className="border rounded-md max-h-60 overflow-y-auto bg-gray-50 dark:bg-gray-900">
                                     {allSpots
                                         .filter(s =>
                                             !searchTerm ||
@@ -418,11 +413,31 @@ export default function AdminPage() {
                                             (s.address && s.address.toLowerCase().includes(searchTerm.toLowerCase()))
                                         )
                                         .map(s => (
-                                            <option key={s.spot_id} value={s.spot_id}>
-                                                {s.name_en} ({s.name_jp})
-                                            </option>
+                                            <div
+                                                key={s.spot_id}
+                                                className={`p-3 border-b last:border-b-0 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors ${selectedSpotId === s.spot_id ? 'bg-indigo-100 dark:bg-indigo-900/40 border-l-4 border-l-indigo-600' : ''}`}
+                                                onClick={() => handleSelectSpotToEdit(s.spot_id)}
+                                            >
+                                                <div className="font-bold text-sm">{s.name_en}</div>
+                                                <div className="text-xs text-muted-foreground mb-1">{s.name_jp}</div>
+                                                <div className="flex gap-2 text-[10px] text-gray-500">
+                                                    <span className="bg-white dark:bg-black px-1 rounded border">{s.category}</span>
+                                                    {s.card_id && <span className="font-mono">ID: {s.card_id}</span>}
+                                                </div>
+                                            </div>
                                         ))}
-                                </select>
+                                    {allSpots.filter(s =>
+                                        !searchTerm ||
+                                        s.name_en.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                        s.name_jp.includes(searchTerm) ||
+                                        (s.description && s.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                                        (s.address && s.address.toLowerCase().includes(searchTerm.toLowerCase()))
+                                    ).length === 0 && (
+                                            <div className="p-4 text-center text-sm text-muted-foreground">
+                                                No spots found matching filter.
+                                            </div>
+                                        )}
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
