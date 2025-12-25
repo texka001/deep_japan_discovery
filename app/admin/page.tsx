@@ -74,12 +74,20 @@ export default function AdminPage() {
     // ... (Existing Generator Functions: handleGenerate, handleSave) ...
     const handleSearchById = async () => {
         if (!searchId) return;
+
+        // Remove non-numeric chars (e.g. #)
+        const diffId = searchId.replace(/[^0-9]/g, '');
+        if (!diffId) {
+            alert('Please enter a valid numeric ID');
+            return;
+        }
+
         setLoading(true);
         try {
             const { data, error } = await supabase
                 .from('spots')
                 .select('*')
-                .eq('card_id', parseInt(searchId))
+                .eq('card_id', parseInt(diffId))
                 .single();
 
             if (error) throw error;
@@ -91,7 +99,7 @@ export default function AdminPage() {
                     setAllSpots([data, ...allSpots]);
                 }
             } else {
-                alert('Spot not found with ID: ' + searchId);
+                alert('Spot not found with ID: ' + diffId);
             }
         } catch (e: any) {
             console.error(e);

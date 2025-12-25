@@ -92,3 +92,4 @@ Implemented the "My Route" (Journeys) feature, allowing users to create, optimiz
 ### Verification Results
 - [x] **Local Build**: Passed (`npm run build`).
 - [x] **Functionality**: Confirmed logic for ID generation (SQL) and ID search (Frontend). Admin page build successful.
+- [x] **Bug Fix**: `handleSearchById` input sanitization added to handle non-numeric characters (e.g., `#`).
