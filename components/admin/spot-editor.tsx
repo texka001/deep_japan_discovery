@@ -14,9 +14,12 @@ interface SpotEditorProps {
     spot: Spot;
     onSave: (updatedSpot: Partial<Spot>) => Promise<void>;
     onCancel: () => void;
+    onUploadImage?: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+    uploading?: boolean;
+    onDelete?: () => Promise<void>;
 }
 
-export function SpotEditor({ spot, onSave, onCancel }: SpotEditorProps) {
+export function SpotEditor({ spot, onSave, onCancel, onUploadImage, uploading = false, onDelete }: SpotEditorProps) {
     const [formData, setFormData] = useState<Partial<Spot>>({});
     const [loading, setLoading] = useState(false);
     const [deepGuide, setDeepGuide] = useState<any>({});
@@ -39,6 +42,19 @@ export function SpotEditor({ spot, onSave, onCancel }: SpotEditorProps) {
             console.error(e);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!onDelete) return;
+        if (confirm('Are you sure you want to DELETE this spot entirely? This action cannot be undone.\n\nConsider changing the Status to \'On Hold\' or \'Closed\' if you just want to hide it.')) {
+            setLoading(true);
+            try {
+                await onDelete();
+            } catch (e) {
+                console.error(e);
+                setLoading(false);
+            }
         }
     };
 
@@ -105,6 +121,8 @@ export function SpotEditor({ spot, onSave, onCancel }: SpotEditorProps) {
                             />
                         </div>
 
+
+
                         <div>
                             <Label>Description</Label>
                             <Textarea
@@ -152,10 +170,47 @@ export function SpotEditor({ spot, onSave, onCancel }: SpotEditorProps) {
 
                         <div>
                             <Label>Image URL (Cover)</Label>
-                            <Input
-                                value={formData.image_url || ''}
-                                onChange={e => setFormData({ ...formData, image_url: e.target.value })}
-                            />
+                            <div className="flex gap-2">
+                                <Input
+                                    value={formData.images?.join(', ') || ''}
+                                    onChange={e => setFormData({ ...formData, images: e.target.value.split(',').map(t => t.trim()) })}
+                                    className="flex-1"
+                                    placeholder="https://example.com/image.jpg, https://example.com/image2.jpg"
+                                />
+                                {onUploadImage && (
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            onChange={onUploadImage}
+                                            disabled={uploading}
+                                        />
+                                        <Button type="button" variant="outline" size="icon" disabled={uploading}>
+                                            {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="text-xl">+</span>}
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-2 space-y-1">
+                                <span className="block font-semibold">How to add images:</span>
+                                <span className="block">• Paste URLs directly (comma separated).</span>
+                                <span className="block">• Click [+] to upload files (multiple selection supported, auto-compressed).</span>
+                                <span className="block">• You can combine both methods (uploaded URLs are appended).</span>
+                            </p>
+
+                            {/* Image Preview */}
+                            {formData.images && formData.images.length > 0 && (
+                                <div className="flex gap-2 mt-2 overflow-x-auto pb-2">
+                                    {formData.images.map((img: string, i: number) => (
+                                        <div key={i} className="relative w-24 h-24 flex-shrink-0 rounded overflow-hidden border bg-gray-100">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={img} alt={`Preview ${i}`} className="w-full h-full object-cover" />
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </TabsContent>
 
@@ -217,12 +272,40 @@ export function SpotEditor({ spot, onSave, onCancel }: SpotEditorProps) {
                     </TabsContent>
                 </Tabs>
 
-                <div className="flex justify-end gap-2 mt-6">
-                    <Button variant="outline" onClick={onCancel}>Cancel</Button>
-                    <Button onClick={handleSave} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white">
-                        {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                        Save Changes
-                    </Button>
+                <div className="my-6 p-4 border-2 border-yellow-500/30 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg">
+                    <Label className="text-base font-semibold text-yellow-700 dark:text-yellow-400 mb-2 block">
+                        Publication Status
+                    </Label>
+                    <select
+                        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mb-2"
+                        value={formData.status || 'published'}
+                        onChange={e => setFormData({ ...formData, status: e.target.value as 'published' | 'on_hold' | 'closed' })}
+                    >
+                        <option value="published">Published (公開) - Visible to everyone</option>
+                        <option value="on_hold">On Hold (掲載保留) - Hidden but preserved</option>
+                        <option value="closed">Closed (閉店) - Marked as closed</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                        Use &quot;On Hold&quot; or &quot;Closed&quot; instead of deleting if you might need the data later.
+                    </p>
+                </div>
+
+                <div className="flex justify-between mt-6">
+                    <div>
+                        {onDelete && (
+                            <Button variant="destructive" onClick={handleDelete} disabled={loading}>
+                                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                                Delete Spot
+                            </Button>
+                        )}
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={onCancel} disabled={loading}>Cancel</Button>
+                        <Button onClick={handleSave} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white">
+                            {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            Save Changes
+                        </Button>
+                    </div>
                 </div>
             </CardContent>
         </Card>

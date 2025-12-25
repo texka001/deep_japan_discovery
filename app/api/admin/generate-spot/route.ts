@@ -24,7 +24,9 @@ export async function POST(request: Request) {
         // 1. Scrape the URL if provided
         if (url) {
             try {
-                const res = await fetch(url);
+                // Determine if it's a Google Maps short URL or similar that needs redirect following
+                const res = await fetch(url, { redirect: 'follow' });
+                const finalUrl = res.url; // Capture the final URL after redirects
                 const html = await res.text();
                 const $ = cheerio.load(html);
 
@@ -37,18 +39,22 @@ export async function POST(request: Request) {
                 const title = $('title').text().trim();
                 const metaDesc = $('meta[name="description"]').attr('content') || "";
                 const h1 = $('h1').text().trim();
-                // Get main body text, truncated to avoid token limits (though Gemini has huge context)
+                const ogTitle = $('meta[property="og:title"]').attr('content') || "";
+                // Get main body text
                 const bodyText = $('body').text().replace(/\s+/g, ' ').trim().substring(0, 10000);
 
                 scrapedContext = `
-            Title: ${title}
+            Original URL: ${url}
+            Final Redirected URL: ${finalUrl} (May contain coordinates and place name)
+            Page Title: ${title}
+            OG Title: ${ogTitle}
             Meta Description: ${metaDesc}
             H1: ${h1}
             Page Content Preview: ${bodyText}
             `;
             } catch (scrapeError) {
                 console.error("Scraping failed:", scrapeError);
-                scrapedContext = "Failed to scrape URL. Generate based on name only.";
+                scrapedContext = "Failed to scrape URL. Generate based on name only (if provided).";
             }
         }
 
@@ -61,9 +67,14 @@ export async function POST(request: Request) {
 
         const prompt = `
     You are an expert on "Deep Japan" - hidden gems, subculture spots, and unique experiences in Japan.
-    Generate a JSON object for a spot named "${name}".
     
-    Context from URL (${url}):
+    Target Spot Name: "${name || 'UNKNOWN - Extract from Context'}"
+    
+    Your task is to generate a JSON object for this spot.
+    If the Target Spot Name is UNKNOWN, you MUST extract the most likely spot name from the provided context (URL, Title, Content).
+    Google Maps URLs often contain the place name or coordinates.
+    
+    Context from provided URL:
     ${scrapedContext}
 
     The JSON must strictly match this schema:

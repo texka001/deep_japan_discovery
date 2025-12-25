@@ -20,6 +20,7 @@ interface MapViewProps {
     routePath?: Spot[]; // Calculated ordered path
     routeLegs?: RouteLeg[]; // Add support for detailed legs
     favoriteSpotIds?: Set<string>; // Set of favorite spot IDs
+    onSearchArea?: (bounds: { north: number, south: number, east: number, west: number }) => void;
 }
 
 export const MapView = ({
@@ -31,11 +32,13 @@ export const MapView = ({
     selectedRouteSpots = [],
     routePath,
     routeLegs,
-    favoriteSpotIds = new Set()
+    favoriteSpotIds = new Set(),
+    onSearchArea
 }: MapViewProps) => {
     const { location, loading, getLocation } = useGeolocation();
     const map = useMap(); // Access the map instance
-    // const polylineRef = useRef<google.maps.Polyline | null>(null); // Removed as per instruction
+    const [showSearchAreaBtn, setShowSearchAreaBtn] = useState(false);
+    const [mapBounds, setMapBounds] = useState<google.maps.LatLngBounds | null>(null);
 
     // Use Akihabara as the initial view, don't auto-pan to user location
     const initialCenter = DEFAULT_CENTER;
@@ -53,16 +56,49 @@ export const MapView = ({
         }
     }, [map, selectedSpotId, spots]);
 
+
     const handleMyLocationClick = () => {
         if (location && map) {
             map.panTo(location);
             map.setZoom(16);
+            setShowSearchAreaBtn(false); // Reset button on reset view
         } else {
             getLocation(); // Try to fetch again
         }
     };
 
-    // Draw Route Polyline
+    // Listen for map moves
+    useEffect(() => {
+        if (!map) return;
+
+        const listener = map.addListener('idle', () => {
+            const bounds = map.getBounds();
+            if (bounds) {
+                setMapBounds(bounds);
+                // Simple logic: Always show button when map moves if handler is present
+                // Ideally we check if moved significant distance, but for now simple.
+                if (onSearchArea) setShowSearchAreaBtn(true);
+            }
+        });
+
+        return () => {
+            google.maps.event.removeListener(listener);
+        };
+    }, [map, onSearchArea]);
+
+    const handleSearchAreaClick = () => {
+        if (mapBounds && onSearchArea) {
+            const ne = mapBounds.getNorthEast();
+            const sw = mapBounds.getSouthWest();
+            onSearchArea({
+                north: ne.lat(),
+                south: sw.lat(),
+                east: ne.lng(),
+                west: sw.lng()
+            });
+            setShowSearchAreaBtn(false);
+        }
+    };
     useEffect(() => {
         if (!map || !isRouteMode) return;
 
@@ -118,6 +154,20 @@ export const MapView = ({
             };
         }
     }, [map, routePath, routeLegs, isRouteMode]);
+
+    // Auto-pan to start of route when route is loaded
+    useEffect(() => {
+        if (!map || !routePath || routePath.length === 0) return;
+
+        // Pan to the first spot
+        const startSpot = routePath[0];
+        const coords = getCoordinates(startSpot.location || '');
+        if (coords) {
+            map.panTo(coords);
+            map.setZoom(15);
+            // Optionally fit bounds if we want to see whole route, but request was "center to start"
+        }
+    }, [map, routePath]);
 
     return (
         <div className="w-full h-full min-h-[400px] relative">
@@ -210,11 +260,22 @@ export const MapView = ({
             </Map>
 
             {/* My Location Button - Always Visible */}
-            <div className="absolute top-32 right-4 md:bottom-24 md:right-8 md:top-auto z-10">
+            <div className="absolute top-32 right-4 md:bottom-24 md:right-8 md:top-auto z-10 flex flex-col gap-2">
+                {/* Search Area Button */}
+                {showSearchAreaBtn && !isRouteMode && (
+                    <Button
+                        variant="secondary"
+                        className="rounded-full shadow-lg bg-white/90 hover:bg-white text-sm font-semibold mb-2 animate-in fade-in slide-in-from-bottom-4"
+                        onClick={handleSearchAreaClick}
+                    >
+                        Search in this area
+                    </Button>
+                )}
+
                 <Button
                     variant="secondary"
                     size="icon"
-                    className="rounded-full shadow-lg bg-white/90 hover:bg-white w-12 h-12"
+                    className="rounded-full shadow-lg bg-white/90 hover:bg-white w-12 h-12 self-end"
                     onClick={handleMyLocationClick}
                     title={location ? "Go to my location" : "Find my location"}
                 >

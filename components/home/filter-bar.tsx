@@ -4,7 +4,7 @@
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
-const CATEGORIES = ['All', 'Subculture', 'Retro', 'Craft']
+const CATEGORIES = ['All', 'Subculture', 'Retro', 'Craft', 'Nearby']
 
 interface FilterBarProps {
     selected: string;

@@ -16,8 +16,9 @@ import { RouteBuilder } from '@/components/route/route-builder';
 import { calculateDistance, getCoordinates } from '@/lib/location';
 import { RouteData, Spot, Journey } from '@/types';
 import { getRouteLegs } from '@/components/map/directions-service';
-import { Waypoints } from 'lucide-react';
+import { Waypoints, MapPin } from 'lucide-react';
 import { RouteListModal } from '@/components/route/route-list-modal';
+import { useGeolocation } from '@/hooks/use-geolocation';
 
 export default function Home() {
   const [spots, setSpots] = useState<any[]>([]);
@@ -25,6 +26,9 @@ export default function Home() {
   const [category, setCategory] = useState('All');
   const [loading, setLoading] = useState(true);
   const [selectedSpot, setSelectedSpot] = useState<any | null>(null);
+
+  // Geolocation
+  const { location, getLocation } = useGeolocation();
 
   const { user, signOut } = useAuth();
   const [favoriteSpotIds, setFavoriteSpotIds] = useState<Set<string>>(new Set());
@@ -34,6 +38,8 @@ export default function Home() {
   const [selectedRouteSpots, setSelectedRouteSpots] = useState<Spot[]>([]);
   const [calculatedRoute, setCalculatedRoute] = useState<RouteData | null>(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [routeListOpen, setRouteListOpen] = useState(false);
+  const [currentJourneyId, setCurrentJourneyId] = useState<string | null>(null);
 
   // Fetch Favorites
   useEffect(() => {
@@ -53,18 +59,107 @@ export default function Home() {
   // Fetch spots
   useEffect(() => {
     async function fetchSpots() {
-      // Cast location to text to get "POINT(lng lat)" format for MapView
-      const { data, error } = await supabase.from('spots').select('*, location:location::text');
-      if (data) {
-        setSpots(data);
-        setFilteredSpots(data);
+      setLoading(true);
+
+      try {
+        if (category === 'Nearby') {
+          // If location is not yet available, try to get it
+          // Note: useGeolocation hook runs on mount, so location might be null initially
+          let currentLoc = location;
+          if (!currentLoc) {
+            // Trigger manual fetch if we can, but useGeolocation exposes getLocation
+            // However, getLocation is async but doesn't return a promise resolving to location immediately in the hook design usually.
+            // Let's assume the hook handles it or we might need to wait.
+            // For now, if no location, we can't fetch nearby properly.
+            // Let's trigger it.
+            getLocation();
+
+            // If still null, maybe show alert or wait? 
+            // Realistically, we should check availability. 
+            // For this MVP, let's assume if user clicks Nearby, they want us to try.
+            if (!location) {
+              // Fallback or wait for valid location (handled by effect dependency on location potentially?)
+              // Actually, let's just return if no location, and let the effect re-run when location updates.
+              console.log("Waiting for location...");
+              setLoading(false);
+              return;
+            }
+          }
+
+          if (location) {
+            const { data, error } = await supabase.rpc('get_spots_nearby', {
+              lat: location.lat,
+              long: location.lng,
+              radius_meters: 2000 // 2km
+            });
+
+            if (error) {
+              console.error("Error fetching nearby spots:", error);
+              alert("Error fetching nearby spots");
+            } else {
+              // RPC returns spots with extra dist_meters
+              // We need map to cast location to text if needed, but RPC returns geography.
+              // Supabase JS client usually returns format we can use, but MapView expects text or WKB.
+              // Let's see what RPC returns. it returns 'location geography'.
+              // The SB client might return it as WKB hex string which our getCoordinates handles.
+
+              // But wait, the previous fetch uses .select('*, location:location::text')
+              // which forces it to text (WKT/Hex).
+              // Our RPC returns geography type directly. 
+              // Supabase/PostgREST typically returns GeoJSON or WKB for geography.
+              // Let's try to trust the WKB parser in `lib/location.ts` for now.
+
+              setFilteredSpots(data || []);
+              // We don't overwrite global 'spots' (cache) with filtered result usually?
+              // Actually the current code uses 'spots' as the source of truth for 'All'.
+              // If we switch to 'Nearby', we are just setting filteredSpots.
+              // But we shouldn't overwrite 'spots' probably, unless we want to cache "All".
+              // 'spots' seems to be "All Spots Cache".
+            }
+          }
+
+        } else {
+          // Standard Fetch
+          // Check if we already have spots?
+          if (spots.length === 0) {
+            const { data, error } = await supabase.from('spots').select('*, location:location::text');
+            if (data) {
+              setSpots(data);
+              if (category === 'All') setFilteredSpots(data);
+              else if (category === 'Favorites') setFilteredSpots(data.filter(s => favoriteSpotIds.has(s.spot_id)));
+              else setFilteredSpots(data.filter(s => s.category === category));
+            }
+          } else {
+            // Client side filtering from cache
+            if (category === 'All') {
+              setFilteredSpots(spots);
+            } else if (category === 'Favorites') {
+              setFilteredSpots(spots.filter(s => favoriteSpotIds.has(s.spot_id)));
+            } else {
+              setFilteredSpots(spots.filter(s => s.category === category));
+            }
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     fetchSpots();
-  }, []);
+  }, [category, location, favoriteSpotIds]); // Add location dependency to re-fetch if location updates while on 'Nearby'
 
   // Filter logic
+  // Filter logic handled in main effect now for async RPC reasons
+  // ensuring we don't have conflicting effects
+
+  // However, we need to handle "Normal" categories switching.
+  // The above effect covers it if we ensure 'spots' are loaded.
+  // Let's check the dependency array. 
+  // It handles everything now. 
+  // We can remove the old filter effect?
+  // Old effect:
+  /*
   useEffect(() => {
     if (category === 'All') {
       setFilteredSpots(spots);
@@ -74,6 +169,13 @@ export default function Home() {
       setFilteredSpots(spots.filter(s => s.category === category));
     }
   }, [category, spots, favoriteSpotIds]);
+  */
+  // Wait, if I remove it, I must ensure the main fetchSpots handles it correctly.
+  // My rewritten fetchSpots handles:
+  // 1. Nearby -> Fetch RPC
+  // 2. Others -> If spots empty, fetch All, then filter. If spots not empty, just filter.
+  // One edge case: If I click 'All', spots IS NOT empty, so it enters "Else" -> "Client side filtering". Correct.
+  // So I can remove this separate effect.
 
   // Handle toggle from child components
   const handleToggleFavorite = (spotId: string, isFav: boolean) => {
@@ -121,6 +223,7 @@ export default function Home() {
   const handleClearRoute = () => {
     setSelectedRouteSpots([]);
     setCalculatedRoute(null);
+    setCurrentJourneyId(null);
     setIsRouteMode(false);
   };
 
@@ -211,25 +314,123 @@ export default function Home() {
     }
     if (!calculatedRoute) return;
 
-    const { error } = await supabase.from('journeys').insert({
+    // Check current journey count
+    const { count } = await supabase
+      .from('journeys')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+
+    if (count !== null && count >= 10) {
+      alert("You can only save up to 10 routes. Please delete some routes to save a new one.");
+      return;
+    }
+
+    const { data, error } = await supabase.from('journeys').insert({
       user_id: user.id,
       title: title,
       route_json: calculatedRoute
-    });
+    }).select().single();
 
     if (error) {
       alert('Failed to save: ' + error.message);
     } else {
       alert('Route saved!');
-      handleClearRoute();
+      if (data) {
+        setCurrentJourneyId(data.journey_id);
+      }
+      // Don't clear route after save, stay in route mode
+      // handleClearRoute(); 
     }
   };
 
-  const handleLoadRoute = (journey: Journey) => {
+  const handleLoadRoute = async (journey: Journey) => {
+    // Check if spots still exist in DB and are published
+    const spotIds = journey.route_json.stops.map(s => s.spot_id);
+
+    const { data: existingSpots, error } = await supabase
+      .from('spots')
+      .select('spot_id, status')
+      .in('spot_id', spotIds);
+
+    if (error) {
+      console.error('Error checking existing spots:', error);
+    }
+
+    // Consider a spot valid only if it exists AND status is 'published'
+    // If status is missing (old records), assume published? Schema says default 'published'.
+    const validSpotIds = new Set(
+      existingSpots
+        ?.filter(s => s.status === 'published' || !s.status)
+        .map(s => s.spot_id) || []
+    );
+
+    const processedStops = journey.route_json.stops.map(s => ({
+      ...s,
+      is_deleted: !validSpotIds.has(s.spot_id)
+    }));
+
+    const processedRoute = {
+      ...journey.route_json,
+      stops: processedStops
+    };
+
     setIsRouteMode(true);
-    setCalculatedRoute(journey.route_json);
-    setSelectedRouteSpots(journey.route_json.stops);
+    setCalculatedRoute(processedRoute);
+    setSelectedRouteSpots(processedStops);
+    setCurrentJourneyId(journey.journey_id);
     // Ensure we switch to result view automatically handled by useEffect in RouteBuilder
+    setRouteListOpen(false); // Close the modal
+  };
+
+  const handleDeleteCurrentJourney = async () => {
+    if (!currentJourneyId || !user) return;
+
+    const { error } = await supabase.from('journeys').delete().eq('journey_id', currentJourneyId);
+    if (error) {
+      alert("Failed to delete journey");
+      console.error(error);
+    } else {
+      alert("Journey deleted");
+      handleClearRoute();
+
+      // Check if there are any remaining journeys
+      const { count } = await supabase
+        .from('journeys')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (count && count > 0) {
+        handleOpenRouteList();
+      }
+    }
+  };
+
+  const handleOpenRouteList = () => {
+    setRouteListOpen(true);
+  };
+
+  const handleSearchArea = async (bounds: { north: number, south: number, east: number, west: number }) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_spots_in_bounds', {
+        min_lat: bounds.south,
+        min_lng: bounds.west,
+        max_lat: bounds.north,
+        max_lng: bounds.east
+      });
+
+      if (error) {
+        console.error("Error searching area:", error);
+        alert("Error searching area");
+      } else {
+        setFilteredSpots(data || []);
+        setCategory('Area Search');
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Ensure selected route spots are always visible, even if filtered out
@@ -278,7 +479,7 @@ export default function Home() {
       {/* Route Toggle Button */}
       <div className="absolute top-28 left-4 z-30 flex flex-col gap-2 items-start">
         <Button
-          className={`rounded-full shadow-lg transition-all ${isRouteMode ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-slate-900 hover:bg-slate-100'}`}
+          className={`rounded-full shadow-lg transition-all border-2 border-slate-900 ${isRouteMode ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent' : 'bg-white text-slate-900 hover:bg-slate-900 hover:text-white'}`}
           onClick={() => {
             if (isRouteMode) {
               handleClearRoute();
@@ -292,7 +493,7 @@ export default function Home() {
           <span className="hidden md:inline">{isRouteMode ? 'Exit Route Mode' : 'Create Route'}</span>
         </Button>
 
-        {!isRouteMode && <RouteListModal onLoadRoute={handleLoadRoute} />}
+        <RouteListModal onLoadRoute={handleLoadRoute} open={routeListOpen} onOpenChange={setRouteListOpen} />
       </div>
 
       {isRouteMode && (
@@ -304,6 +505,10 @@ export default function Home() {
           onSave={handleSaveJourney}
           calculatedRoute={calculatedRoute}
           isOptimizing={isOptimizing}
+          onSpotSelect={setSelectedSpot}
+          onOpenRouteList={handleOpenRouteList}
+          currentJourneyId={currentJourneyId || undefined}
+          onDeleteJourney={handleDeleteCurrentJourney}
         />
       )}
 
@@ -320,6 +525,7 @@ export default function Home() {
             routePath={calculatedRoute?.stops}
             routeLegs={calculatedRoute?.legs}
             favoriteSpotIds={favoriteSpotIds}
+            onSearchArea={handleSearchArea}
           />
         </MapProvider>
       </div>

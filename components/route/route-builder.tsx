@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Spot, RouteData } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { X, MapPin, Play, Save, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, MapPin, Play, Save, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 interface RouteBuilderProps {
@@ -13,6 +13,10 @@ interface RouteBuilderProps {
     onSave: (title: string) => Promise<void>;
     calculatedRoute: RouteData | null;
     isOptimizing: boolean;
+    onSpotSelect?: (spot: Spot) => void;
+    onOpenRouteList?: () => void;
+    currentJourneyId?: string;
+    onDeleteJourney?: () => Promise<void>;
 }
 
 export function RouteBuilder({
@@ -23,6 +27,10 @@ export function RouteBuilder({
     onSave,
     calculatedRoute,
     isOptimizing,
+    onSpotSelect,
+    onOpenRouteList,
+    currentJourneyId,
+    onDeleteJourney
 }: RouteBuilderProps) {
     const [isOpen, setIsOpen] = useState(true);
     const [startSpotId, setStartSpotId] = useState<string>('');
@@ -53,12 +61,32 @@ export function RouteBuilder({
                     My Route Builder ({selectedSpots.length})
                 </CardTitle>
                 <div className="flex gap-2">
+                    {onOpenRouteList && (
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-primary-foreground hover:bg-primary/80" onClick={onOpenRouteList} title="My Routes">
+                            <MapPin size={18} />
+                        </Button>
+                    )}
                     <Button variant="ghost" size="icon" className="h-6 w-6 text-primary-foreground hover:bg-primary/80" onClick={() => setIsOpen(!isOpen)}>
                         {isOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
                     </Button>
                     <Button variant="ghost" size="icon" className="h-6 w-6 text-primary-foreground hover:bg-primary/80" onClick={onClear}>
                         <X size={18} />
                     </Button>
+                    {currentJourneyId && onDeleteJourney && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-primary-foreground hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                            onClick={() => {
+                                if (confirm('Are you sure you want to delete this journey?')) {
+                                    onDeleteJourney();
+                                }
+                            }}
+                            title="Delete This Journey"
+                        >
+                            <Trash2 size={18} />
+                        </Button>
+                    )}
                 </div>
             </CardHeader>
 
@@ -71,10 +99,31 @@ export function RouteBuilder({
                             <div className="h-48 border rounded-md p-2 overflow-y-auto">
                                 <div className="space-y-2">
                                     {selectedSpots.map((spot, idx) => (
-                                        <div key={spot.spot_id} className="flex items-center justify-between bg-secondary/20 p-2 rounded text-sm">
+                                        <div
+                                            key={spot.spot_id}
+                                            className={`
+                                                flex justify-between items-center p-2 rounded-md border
+                                                ${spot.is_deleted
+                                                    ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30 opacity-80'
+                                                    : 'bg-card hover:bg-accent cursor-pointer'
+                                                }
+                                            `}
+                                            onClick={() => !spot.is_deleted && onSpotSelect?.(spot)}
+                                        >
                                             <div className="flex items-center gap-2 overflow-hidden">
-                                                <span className="font-bold text-xs bg-muted px-1 rounded">{idx + 1}</span>
-                                                <span className="truncate">{spot.name_en}</span>
+                                                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold">
+                                                    {idx + 1}
+                                                </div>
+                                                <div className="overflow-hidden">
+                                                    <span className={`text-sm font-medium ${spot.is_deleted ? 'text-red-600 line-through' : 'truncate'}`}>
+                                                        {spot.name_en}
+                                                    </span>
+                                                    {spot.is_deleted && (
+                                                        <span className="text-xs text-red-500 block">
+                                                            This spot has been deleted
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                             <div className="flex items-center gap-2 shrink-0">
                                                 <input
@@ -84,8 +133,9 @@ export function RouteBuilder({
                                                     onChange={() => setStartSpotId(spot.spot_id)}
                                                     className="accent-primary w-4 h-4 cursor-pointer"
                                                     title="Set as Start Point"
+                                                    disabled={spot.is_deleted}
                                                 />
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => onRemoveSpot(spot.spot_id)}>
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); onRemoveSpot(spot.spot_id); }} disabled={spot.is_deleted}>
                                                     <X size={14} />
                                                 </Button>
                                             </div>
@@ -119,21 +169,48 @@ export function RouteBuilder({
 
                             <div className="h-64 border rounded-md p-2 overflow-y-auto">
                                 <div className="space-y-0 relative">
-                                    {calculatedRoute?.stops.map((spot, idx) => {
-                                        const leg = idx < calculatedRoute.stops.length - 1
-                                            ? calculatedRoute.legs?.[idx]
+                                    {calculatedRoute?.stops.map((stop, i) => {
+                                        const leg = i < calculatedRoute.stops.length - 1
+                                            ? calculatedRoute.legs?.[i]
                                             : null;
-
                                         return (
-                                            <div key={spot.spot_id} className="relative">
-                                                {/* Spot Node */}
-                                                <div className="flex gap-3 relative z-10 bg-background/80 py-2">
-                                                    <div className="relative z-10 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
-                                                        {idx + 1}
-                                                    </div>
-                                                    <div className="text-sm pt-0.5">
-                                                        <div className="font-medium">{spot.name_en}</div>
-                                                        <div className="text-xs text-muted-foreground">{idx === 0 ? 'Start Point' : `${spot.avg_stay_minutes} min stay`}</div>
+                                            <div key={stop.spot_id} className="relative pl-6 pb-6 last:pb-0">
+                                                {/* Timeline Line */}
+                                                {i < calculatedRoute.stops.length - 1 && (
+                                                    <div className="absolute left-[11px] top-6 bottom-0 w-0.5 bg-border" />
+                                                )}
+
+                                                {/* Dot */}
+                                                <div className={`absolute left-0 top-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold z-10 border-2 border-background
+                                                     ${stop.is_deleted ? 'bg-red-100 text-red-600' : 'bg-primary text-primary-foreground'}`}>
+                                                    {i + 1}
+                                                </div>
+
+                                                <div className={`space-y-1 ${stop.is_deleted ? 'opacity-70' : ''}`}>
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <div className={`font-medium text-sm ${stop.is_deleted ? 'text-red-600 line-through' : ''}`}>
+                                                                {stop.name_en}
+                                                            </div>
+                                                            {stop.is_deleted && (
+                                                                <div className="text-xs text-red-500 font-semibold">
+                                                                    Deleted Spot
+                                                                </div>
+                                                            )}
+                                                            {!stop.is_deleted && (
+                                                                <p className="text-xs text-muted-foreground">{stop.category} • {stop.avg_stay_minutes} min</p>
+                                                            )}
+                                                        </div>
+                                                        {(!stop.is_deleted) && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-6 w-6 text-muted-foreground"
+                                                                onClick={() => onSpotSelect?.(stop)}
+                                                            >
+                                                                <ChevronDown size={14} className="-rotate-90" />
+                                                            </Button>
+                                                        )}
                                                     </div>
                                                 </div>
 

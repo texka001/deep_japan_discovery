@@ -25,6 +25,11 @@ export default function AdminPage() {
     // Tab State
     const [activeTab, setActiveTab] = useState<'generator' | 'editor' | 'ugc'>('generator');
 
+    // Generator Modes
+    const [generatorMode, setGeneratorMode] = useState<'url' | 'name'>('url');
+    // Image Upload Logic
+    const [uploading, setUploading] = useState(false);
+
     // UGC States
     const [pendingPhotos, setPendingPhotos] = useState<any[]>([]);
     const [pendingCorrections, setPendingCorrections] = useState<any[]>([]);
@@ -48,29 +53,7 @@ export default function AdminPage() {
         setEditingSpot(spot || null);
     };
 
-    const handleSaveEditedSpot = async (updatedData: Partial<Spot>) => {
-        if (!editingSpot) return;
-        setLoading(true);
-        try {
-            const { error } = await supabase
-                .from('spots')
-                .update(updatedData)
-                .eq('spot_id', editingSpot.spot_id);
 
-            if (error) throw error;
-
-            alert('Spot updated successfully!');
-            // Refresh local data
-            const { data } = await supabase.from('spots').select('*').eq('spot_id', editingSpot.spot_id).single();
-            if (data) setEditingSpot(data);
-            fetchAllSpots(); // Refresh list just in case names changed
-        } catch (e: any) {
-            console.error(e);
-            alert('Failed to update: ' + e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     // ... (Existing Generator Functions: handleGenerate, handleSave) ...
     const handleSearchById = async () => {
@@ -214,9 +197,165 @@ export default function AdminPage() {
         fetchUGC();
     };
 
+
+
+    // Dynamically import image compression to avoid SSR issues if necessary, 
+    // but standard import usually works in Next.js client components. 
+    // If build fails, we can switch to dynamic import.
+    const compressImage = async (file: File) => {
+        // Dynamic import to be safe with SSR
+        const imageCompression = (await import('browser-image-compression')).default;
+
+        const options = {
+            maxSizeMB: 0.2, // 200KB
+            maxWidthOrHeight: 1200,
+            useWebWorker: true,
+        };
+        try {
+            const compressedFile = await imageCompression(file, options);
+            return compressedFile;
+        } catch (error) {
+            console.error(error);
+            return file; // Fallback to original if compression fails
+        }
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'generator' | 'editor') => {
+        if (!e.target.files || e.target.files.length === 0) return;
+
+        const files = Array.from(e.target.files);
+        setUploading(true);
+
+        try {
+            const uploadPromises = files.map(async (file) => {
+                // 1. Compress
+                const compressedFile = await compressImage(file);
+
+                // 2. Generate unique path
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const filePath = `uploads/${fileName}`;
+
+                // 3. Upload
+                const { error: uploadError } = await supabase.storage
+                    .from('spot_images')
+                    .upload(filePath, compressedFile);
+
+                if (uploadError) throw uploadError;
+
+                // 4. Get Public URL
+                const { data: { publicUrl } } = supabase.storage
+                    .from('spot_images')
+                    .getPublicUrl(filePath);
+
+                return publicUrl;
+            });
+
+            const uploadedUrls = await Promise.all(uploadPromises);
+
+            // 5. Update State
+            if (target === 'generator' && generatedData) {
+                const currentImages = generatedData.images || [];
+                setGeneratedData({
+                    ...generatedData,
+                    images: [...currentImages, ...uploadedUrls]
+                });
+            } else if (target === 'editor' && editingSpot) {
+                const currentImages = editingSpot.images || [];
+                // Update local state immediately for preview
+                const updatedImages = [...currentImages, ...uploadedUrls];
+                setEditingSpot({
+                    ...editingSpot,
+                    images: updatedImages
+                });
+            }
+
+            alert(`${uploadedUrls.length} image(s) uploaded successfully!`);
+
+        } catch (error: any) {
+            console.error('Upload failed:', error);
+            alert('Upload failed: ' + error.message);
+        } finally {
+            setUploading(false);
+            // Reset input
+            e.target.value = '';
+        }
+    };
+
+    const handleDeleteSpot = async () => {
+        if (!editingSpot?.spot_id) return;
+
+        try {
+            // Delete associated images from Storage first
+            if (editingSpot.images && editingSpot.images.length > 0) {
+                const storagePaths = editingSpot.images
+                    .filter(url => url.includes('/storage/v1/object/public/spot_images/'))
+                    .map(url => {
+                        // Extract path after 'spot_images/'
+                        const parts = url.split('/spot_images/');
+                        return parts[1];
+                    })
+                    .filter(path => !!path); // Ensure valid paths
+
+                if (storagePaths.length > 0) {
+                    const { error: storageError } = await supabase
+                        .storage
+                        .from('spot_images')
+                        .remove(storagePaths);
+
+                    if (storageError) {
+                        console.warn('Failed to delete some images:', storageError);
+                        // We continue to delete the spot record even if image deletion fails partially
+                    }
+                }
+            }
+
+            const { error } = await supabase
+                .from('spots')
+                .delete()
+                .eq('spot_id', editingSpot.spot_id);
+
+            if (error) {
+                console.error('Delete error:', error);
+                throw error;
+            }
+
+            alert('Spot and associated images deleted successfully.');
+            setEditingSpot(null);
+            setSelectedSpotId('');
+            await fetchAllSpots();
+
+        } catch (error: any) {
+            alert('Failed to delete spot: ' + error.message);
+        }
+    };
+
+    const handleSaveEditedSpot = async (updatedData: Partial<Spot>) => {
+        if (!editingSpot?.spot_id) return;
+
+        try {
+            const { error } = await supabase
+                .from('spots')
+                .update(updatedData)
+                .eq('spot_id', editingSpot.spot_id);
+
+            if (error) throw error;
+
+            alert('Spot updated successfully!');
+            setEditingSpot(null);
+            setSelectedSpotId('');
+            fetchAllSpots();
+        } catch (error) {
+            console.error(error);
+            alert('Failed to update spot');
+        }
+    };
+
     if (!user) {
         return <div className="p-8 text-center">Please log in to access Admin Dashboard.</div>;
     }
+
+
 
     return (
         <div className="container mx-auto p-4 max-w-4xl pb-20">
@@ -226,22 +365,13 @@ export default function AdminPage() {
             </div>
 
             <div className="flex gap-4 mb-6 border-b pb-2 overflow-x-auto">
-                <Button
-                    variant={activeTab === 'generator' ? 'default' : 'ghost'}
-                    onClick={() => setActiveTab('generator')}
-                >
+                <Button variant={activeTab === 'generator' ? 'default' : 'ghost'} onClick={() => setActiveTab('generator')}>
                     Spot Generator
                 </Button>
-                <Button
-                    variant={activeTab === 'editor' ? 'default' : 'ghost'}
-                    onClick={() => { setActiveTab('editor'); fetchAllSpots(); }}
-                >
+                <Button variant={activeTab === 'editor' ? 'default' : 'ghost'} onClick={() => { setActiveTab('editor'); fetchAllSpots(); }}>
                     Spot Editor
                 </Button>
-                <Button
-                    variant={activeTab === 'ugc' ? 'default' : 'ghost'}
-                    onClick={() => { setActiveTab('ugc'); fetchUGC(); }}
-                >
+                <Button variant={activeTab === 'ugc' ? 'default' : 'ghost'} onClick={() => { setActiveTab('ugc'); fetchUGC(); }}>
                     UGC Review
                 </Button>
             </div>
@@ -252,25 +382,66 @@ export default function AdminPage() {
                     <Card className="mb-8">
                         <CardHeader>
                             <CardTitle>Spot Generator (AI)</CardTitle>
+                            <div className="flex gap-2 text-sm mt-2">
+                                <button
+                                    className={`px-3 py-1 rounded-full border ${generatorMode === 'url' ? 'bg-indigo-100 border-indigo-500 text-indigo-700' : 'bg-gray-100 text-gray-600'}`}
+                                    onClick={() => setGeneratorMode('url')}
+                                >
+                                    From Google Maps URL
+                                </button>
+                                <button
+                                    className={`px-3 py-1 rounded-full border ${generatorMode === 'name' ? 'bg-indigo-100 border-indigo-500 text-indigo-700' : 'bg-gray-100 text-gray-600'}`}
+                                    onClick={() => setGeneratorMode('name')}
+                                >
+                                    From Name
+                                </button>
+                            </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div>
-                                <Label>Spot Name</Label>
-                                <Input
-                                    value={inputName}
-                                    onChange={e => setInputName(e.target.value)}
-                                    placeholder="e.g. Super Potato Akihabara"
-                                />
-                            </div>
-                            <div>
-                                <Label>Reference URL (Optional)</Label>
-                                <Input
-                                    value={inputUrl}
-                                    onChange={e => setInputUrl(e.target.value)}
-                                    placeholder="e.g. Google Maps URL"
-                                />
-                            </div>
-                            <Button onClick={handleGenerate} disabled={loading || !inputName} className="w-full">
+                            {generatorMode === 'url' ? (
+                                <div>
+                                    <Label>Google Maps URL (Redirects Supported)</Label>
+                                    <Input
+                                        value={inputUrl}
+                                        onChange={e => setInputUrl(e.target.value)}
+                                        placeholder="e.g. https://maps.app.goo.gl/..."
+                                    />
+                                    <div className="text-xs text-muted-foreground mt-2 space-y-1">
+                                        <p>How to get the URL:</p>
+                                        <ol className="list-decimal list-inside ml-1">
+                                            <li>Open the spot in Google Maps</li>
+                                            <li>Click the <strong>Share</strong> button</li>
+                                            <li>Click <strong>Copy Link</strong></li>
+                                        </ol>
+                                        <p className="mt-1">The AI will automatically extract the spot name and details.</p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div>
+                                        <Label>Spot Name <span className="text-red-500">*</span></Label>
+                                        <Input
+                                            value={inputName}
+                                            onChange={e => setInputName(e.target.value)}
+                                            placeholder="e.g. Super Potato Akihabara"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label>Reference URL (Optional)</Label>
+                                        <Input
+                                            value={inputUrl}
+                                            onChange={e => setInputUrl(e.target.value)}
+                                            placeholder="e.g. Official Site or Maps URL"
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            <Button
+                                onClick={handleGenerate}
+                                disabled={loading || (generatorMode === 'url' ? !inputUrl : !inputName)}
+                                className="w-full"
+                            >
                                 {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                                 Generate Data
                             </Button>
@@ -342,10 +513,44 @@ export default function AdminPage() {
 
                                 <div>
                                     <Label>Images (comma separated URLs)</Label>
-                                    <Input
-                                        value={generatedData.images?.join(', ')}
-                                        onChange={e => setGeneratedData({ ...generatedData, images: e.target.value.split(',').map((t: string) => t.trim()) })}
-                                    />
+                                    <div className="flex gap-2">
+                                        <Input
+                                            value={generatedData.images?.join(', ') || ''}
+                                            onChange={e => setGeneratedData({ ...generatedData, images: e.target.value.split(',').map((t: string) => t.trim()) })}
+                                            className="flex-1"
+                                            placeholder="https://example.com/image.jpg, https://example.com/image2.jpg"
+                                        />
+                                        <div className="relative">
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                multiple
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                onChange={(e) => handleImageUpload(e, 'generator')}
+                                                disabled={uploading}
+                                            />
+                                            <Button type="button" variant="outline" size="icon" disabled={uploading}>
+                                                {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="text-xl">+</span>}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-2 space-y-1">
+                                        <span className="block font-semibold">How to add images:</span>
+                                        <span className="block">• Paste URLs directly (comma separated).</span>
+                                        <span className="block">• Click [+] to upload files (multiple selection supported, auto-compressed).</span>
+                                        <span className="block">• You can combine both methods (uploaded URLs are appended).</span>
+                                    </p>
+
+                                    {generatedData.images && generatedData.images.length > 0 && (
+                                        <div className="flex gap-2 mt-2 overflow-x-auto pb-2">
+                                            {generatedData.images.map((img: string, i: number) => (
+                                                <div key={i} className="relative w-24 h-24 flex-shrink-0 rounded overflow-hidden border bg-gray-100">
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img src={img} alt={`Preview ${i}`} className="w-full h-full object-cover" />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs font-mono overflow-auto max-h-40">
@@ -447,6 +652,9 @@ export default function AdminPage() {
                             spot={editingSpot}
                             onSave={handleSaveEditedSpot}
                             onCancel={() => { setEditingSpot(null); setSelectedSpotId(''); }}
+                            onUploadImage={(e) => handleImageUpload(e, 'editor')}
+                            uploading={uploading}
+                            onDelete={handleDeleteSpot}
                         />
                     )}
                 </div>

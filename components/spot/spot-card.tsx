@@ -46,6 +46,16 @@ export function SpotCard({ spot, isFavorite, onToggleFavorite, onClick }: SpotCa
                     <Badge className="absolute top-2 left-2 bg-black/70 hover:bg-black/80">
                         Lvl.{spot.difficulty}
                     </Badge>
+                    {spot.status === 'on_hold' && (
+                        <Badge variant="destructive" className="absolute top-2 left-16 bg-yellow-600/90 hover:bg-yellow-700/90 text-white border-none">
+                            掲載保留
+                        </Badge>
+                    )}
+                    {spot.status === 'closed' && (
+                        <Badge variant="secondary" className="absolute top-2 left-16 bg-gray-600/90 hover:bg-gray-700/90 text-white border-none">
+                            閉店
+                        </Badge>
+                    )}
                     <FavoriteButton
                         spotId={spot.spot_id}
                         initialIsFavorite={isFavorite}
