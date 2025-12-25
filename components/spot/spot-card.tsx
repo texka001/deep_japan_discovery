@@ -1,7 +1,7 @@
-
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, MapPin } from "lucide-react"
+import { Clock, MapPin, Copy, Check } from "lucide-react"
 import Image from "next/image"
 import { FavoriteButton } from "./favorite-button"
 import { getGoogleMapsUrl } from "@/lib/location"
@@ -16,6 +16,17 @@ interface SpotCardProps {
 }
 
 export function SpotCard({ spot, isFavorite, onToggleFavorite, onClick }: SpotCardProps) {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopyId = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (spot.card_id) {
+            navigator.clipboard.writeText(spot.card_id.toString());
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
     return (
         <Card className="cursor-pointer hover:shadow-lg transition-shadow relative" onClick={onClick}>
             <CardHeader className="p-0 overflow-hidden rounded-t-lg">
@@ -53,7 +64,16 @@ export function SpotCard({ spot, isFavorite, onToggleFavorite, onClick }: SpotCa
                 <div className="flex gap-2 mb-2 items-center">
                     <Badge variant="outline" className="text-xs">{spot.category}</Badge>
                     {spot.card_id && (
-                        <span className="text-xs text-muted-foreground font-mono">#{spot.card_id}</span>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                            <span>#{spot.card_id}</span>
+                            <button
+                                onClick={handleCopyId}
+                                className="hover:text-black dark:hover:text-white transition-colors p-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"
+                                title="Copy ID"
+                            >
+                                {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                        </div>
                     )}
                 </div>
                 <div className="flex items-center text-sm text-gray-500 gap-4">
