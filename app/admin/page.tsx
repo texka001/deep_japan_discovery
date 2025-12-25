@@ -413,7 +413,9 @@ export default function AdminPage() {
                                         .filter(s =>
                                             !searchTerm ||
                                             s.name_en.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                            s.name_jp.includes(searchTerm)
+                                            s.name_jp.includes(searchTerm) ||
+                                            (s.description && s.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                                            (s.address && s.address.toLowerCase().includes(searchTerm.toLowerCase()))
                                         )
                                         .map(s => (
                                             <option key={s.spot_id} value={s.spot_id}>
